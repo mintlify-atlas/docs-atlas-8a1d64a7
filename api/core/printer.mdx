@@ -1,0 +1,362 @@
+---
+title: 'PrinterHelper'
+description: 'Bluetooth thermal printer management and ESC/POS command utilities'
+---
+
+## Overview
+
+The `PrinterHelper` class provides a singleton interface for managing Bluetooth thermal printers. It handles connection management, permission requests, and receipt printing using ESC/POS commands.
+
+**Location:** `lib/core/utils/printer_helper.dart`
+
+## EscPos Commands
+
+The `EscPos` class contains ESC/POS command byte sequences for thermal printer control.
+
+### Command Constants
+
+<ParamField path="init" type="List<int>" default="[0x1B, 0x40]">
+  Initialize printer and reset settings
+</ParamField>
+
+<ParamField path="alignCenter" type="List<int>" default="[0x1B, 0x61, 0x01]">
+  Set text alignment to center
+</ParamField>
+
+<ParamField path="alignLeft" type="List<int>" default="[0x1B, 0x61, 0x00]">
+  Set text alignment to left
+</ParamField>
+
+<ParamField path="alignRight" type="List<int>" default="[0x1B, 0x61, 0x02]">
+  Set text alignment to right
+</ParamField>
+
+<ParamField path="boldOn" type="List<int>" default="[0x1B, 0x45, 0x01]">
+  Enable bold text style
+</ParamField>
+
+<ParamField path="boldOff" type="List<int>" default="[0x1B, 0x45, 0x00]">
+  Disable bold text style
+</ParamField>
+
+<ParamField path="textNormal" type="List<int>" default="[0x1D, 0x21, 0x00]">
+  Set normal text size
+</ParamField>
+
+<ParamField path="textLarge" type="List<int>" default="[0x1D, 0x21, 0x11]">
+  Set large text size (double width and height)
+</ParamField>
+
+<ParamField path="lineFeed" type="List<int>" default="[0x0A]">
+  Line feed command (new line)
+</ParamField>
+
+## PrinterHelper Class
+
+### Singleton Pattern
+
+PrinterHelper implements the singleton pattern to ensure a single instance manages all printer operations.
+
+```dart
+final printer = PrinterHelper();
+```
+
+### Properties
+
+#### isConnected
+
+Indicates whether a printer is currently connected.
+
+```dart
+bool get isConnected
+```
+
+<ResponseField name="return" type="bool">
+  `true` if printer is connected, `false` otherwise
+</ResponseField>
+
+## Methods
+
+### checkPermission()
+
+Requests necessary Bluetooth and location permissions for printer connectivity.
+
+```dart
+Future<bool> checkPermission() async
+```
+
+**Requested Permissions:**
+- `Permission.bluetooth` - Legacy Bluetooth permission
+- `Permission.bluetoothScan` - Android 12+ Bluetooth scanning
+- `Permission.bluetoothConnect` - Android 12+ Bluetooth connection
+- `Permission.location` - Required for Bluetooth device discovery
+
+<ResponseField name="return" type="bool">
+  `true` if all permissions granted, `false` otherwise
+</ResponseField>
+
+**Usage:**
+
+```dart
+final hasPermission = await PrinterHelper().checkPermission();
+if (!hasPermission) {
+  // Show permission denied message
+}
+```
+
+### getBondedDevices()
+
+Retrieves a list of paired (bonded) Bluetooth devices.
+
+```dart
+Future<List<BluetoothInfo>> getBondedDevices() async
+```
+
+<ResponseField name="return" type="List<BluetoothInfo>">
+  List of paired Bluetooth devices. Returns empty list on error.
+</ResponseField>
+
+**Usage:**
+
+```dart
+final devices = await PrinterHelper().getBondedDevices();
+for (var device in devices) {
+  print('${device.name} - ${device.macAddress}');
+}
+```
+
+### connect()
+
+Connects to a Bluetooth thermal printer using its MAC address.
+
+```dart
+Future<bool> connect(String macAddress) async
+```
+
+<ParamField path="macAddress" type="String" required>
+  MAC address of the Bluetooth printer (e.g., "00:11:22:33:44:55")
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  `true` if connection successful, `false` otherwise
+</ResponseField>
+
+**Usage:**
+
+```dart
+final connected = await PrinterHelper().connect('00:11:22:33:44:55');
+if (connected) {
+  // Printer ready for printing
+}
+```
+
+### disconnect()
+
+Disconnects from the currently connected printer.
+
+```dart
+Future<bool> disconnect() async
+```
+
+<ResponseField name="return" type="bool">
+  `true` if disconnection successful, `false` otherwise
+</ResponseField>
+
+**Usage:**
+
+```dart
+await PrinterHelper().disconnect();
+```
+
+### printText()
+
+Prints simple text to the connected printer.
+
+```dart
+Future<void> printText(String text) async
+```
+
+<ParamField path="text" type="String" required>
+  Text content to print
+</ParamField>
+
+**Behavior:**
+- Converts text to ASCII bytes
+- Only executes if printer is connected
+- Verifies connection status before printing
+
+**Usage:**
+
+```dart
+await PrinterHelper().printText('Hello from thermal printer!');
+```
+
+### printReceipt()
+
+Prints a formatted receipt with shop details, items, and total using ESC/POS commands.
+
+```dart
+Future<void> printReceipt({
+  required String shopName,
+  required String address1,
+  required String address2,
+  required String phone,
+  required List<Map<String, dynamic>> items,
+  required double total,
+  required String footer,
+}) async
+```
+
+#### Parameters
+
+<ParamField path="shopName" type="String" required>
+  Shop name (printed center, bold, large)
+</ParamField>
+
+<ParamField path="address1" type="String" required>
+  First line of shop address
+</ParamField>
+
+<ParamField path="address2" type="String" required>
+  Second line of shop address
+</ParamField>
+
+<ParamField path="phone" type="String" required>
+  Shop phone number
+</ParamField>
+
+<ParamField path="items" type="List<Map<String, dynamic>>" required>
+  List of items to print. Each item must contain:
+  - `name` (String) - Item name
+  - `qty` (num) - Quantity
+  - `price` (num) - Unit price
+  - `total` (num) - Line total
+</ParamField>
+
+<ParamField path="total" type="double" required>
+  Grand total amount
+</ParamField>
+
+<ParamField path="footer" type="String" required>
+  Footer message (e.g., "Thank you for your business!")
+</ParamField>
+
+#### Receipt Format
+
+The printed receipt includes:
+
+1. **Header** (center-aligned, bold, large):
+   - Shop name
+2. **Shop Info** (center-aligned, normal):
+   - Address lines (if not empty)
+   - Phone number
+   - Current date/time (format: `dd-MM-yyyy hh:mm a`)
+3. **Items Section** (left-aligned):
+   - Column headers: "Item", "Price", "Total"
+   - Each item formatted as: `{qty}x {name}  {price}  {total}`
+4. **Total** (right-aligned, bold):
+   - "TOTAL: {amount}"
+5. **Footer** (center-aligned):
+   - Custom footer message
+   - Additional line feeds for paper cutting
+
+**Usage:**
+
+```dart
+await PrinterHelper().printReceipt(
+  shopName: 'My Store',
+  address1: '123 Main Street',
+  address2: 'City, State 12345',
+  phone: '+1234567890',
+  items: [
+    {
+      'name': 'Product A',
+      'qty': 2,
+      'price': 10.0,
+      'total': 20.0,
+    },
+    {
+      'name': 'Product B',
+      'qty': 1,
+      'price': 15.5,
+      'total': 15.5,
+    },
+  ],
+  total: 35.5,
+  footer: 'Thank you for shopping with us!',
+);
+```
+
+## Implementation Details
+
+### Private Methods
+
+#### _textToBytes()
+
+Converts text string to byte array for printer transmission.
+
+```dart
+List<int> _textToBytes(String text)
+```
+
+**Note:** Uses code units (Latin-1 encoding) for basic ASCII compatibility with most thermal printers.
+
+## Complete Example
+
+```dart
+import 'package:flutter/material.dart';
+import 'core/utils/printer_helper.dart';
+
+class PrinterService {
+  final PrinterHelper _printer = PrinterHelper();
+
+  Future<void> setupAndPrint() async {
+    // 1. Check permissions
+    final hasPermission = await _printer.checkPermission();
+    if (!hasPermission) {
+      print('Bluetooth permissions denied');
+      return;
+    }
+
+    // 2. Get bonded devices
+    final devices = await _printer.getBondedDevices();
+    if (devices.isEmpty) {
+      print('No paired printers found');
+      return;
+    }
+
+    // 3. Connect to first device
+    final connected = await _printer.connect(devices.first.macAddress);
+    if (!connected) {
+      print('Failed to connect to printer');
+      return;
+    }
+
+    // 4. Print receipt
+    await _printer.printReceipt(
+      shopName: 'Acme Store',
+      address1: '123 Commerce St',
+      address2: 'Business District',
+      phone: '555-0123',
+      items: [
+        {'name': 'Widget', 'qty': 3, 'price': 12.99, 'total': 38.97},
+        {'name': 'Gadget', 'qty': 1, 'price': 24.99, 'total': 24.99},
+      ],
+      total: 63.96,
+      footer: 'Visit us again!',
+    );
+
+    // 5. Disconnect
+    await _printer.disconnect();
+  }
+}
+```
+
+## Best Practices
+
+1. **Always check permissions** before attempting printer operations
+2. **Verify connection status** using `isConnected` before printing
+3. **Handle errors gracefully** - all async methods may fail silently
+4. **Disconnect when done** to free Bluetooth resources
+5. **Test receipt formatting** with your specific printer model
+6. **Keep item names short** (max 16 characters) for proper column alignment

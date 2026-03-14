@@ -1,0 +1,254 @@
+---
+title: 'Shop API'
+description: 'Shop management APIs, entities, and BLoC'
+---
+
+## Shop Entity
+
+The `Shop` entity represents shop information used for receipts and settings.
+
+### Properties
+
+<ParamField path="name" type="String" default="''">
+  Shop name
+</ParamField>
+
+<ParamField path="addressLine1" type="String" default="''">
+  First line of shop address
+</ParamField>
+
+<ParamField path="addressLine2" type="String" default="''">
+  Second line of shop address
+</ParamField>
+
+<ParamField path="phoneNumber" type="String" default="''">
+  Shop phone number
+</ParamField>
+
+<ParamField path="upiId" type="String" default="''">
+  UPI ID for payments
+</ParamField>
+
+<ParamField path="footerText" type="String" default="''">
+  Footer text for receipts
+</ParamField>
+
+### Constructor
+
+```dart
+const Shop({
+  String name = '',
+  String addressLine1 = '',
+  String addressLine2 = '',
+  String phoneNumber = '',
+  String upiId = '',
+  String footerText = '',
+})
+```
+
+### Methods
+
+<Expandable title="copyWith()">
+  Creates a copy of the shop with optional field updates.
+
+  ```dart
+  Shop copyWith({
+    String? name,
+    String? addressLine1,
+    String? addressLine2,
+    String? phoneNumber,
+    String? upiId,
+    String? footerText,
+  })
+  ```
+</Expandable>
+
+---
+
+## ShopRepository
+
+Abstract repository interface for shop data operations.
+
+### Methods
+
+<Expandable title="getShop()">
+  <ParamField path="returns" type="Future<Either<Failure, Shop>>">
+    Returns shop details or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, Shop>> getShop()
+  ```
+</Expandable>
+
+<Expandable title="updateShop(Shop shop)">
+  <ParamField path="shop" type="Shop" required>
+    Shop data to save
+  </ParamField>
+  
+  <ParamField path="returns" type="Future<Either<Failure, void>>">
+    Returns success or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, void>> updateShop(Shop shop)
+  ```
+</Expandable>
+
+---
+
+## Use Cases
+
+### GetShopUseCase
+
+Retrieves shop details from the repository.
+
+```dart
+class GetShopUseCase implements UseCase<Shop, NoParams> {
+  final ShopRepository repository;
+
+  GetShopUseCase(this.repository);
+
+  Future<Either<Failure, Shop>> call(NoParams params)
+}
+```
+
+### UpdateShopUseCase
+
+Updates shop details in the repository.
+
+```dart
+class UpdateShopUseCase implements UseCase<void, Shop> {
+  final ShopRepository repository;
+
+  UpdateShopUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(Shop params)
+}
+```
+
+---
+
+## ShopBloc
+
+BLoC for managing shop state and events.
+
+### Constructor
+
+```dart
+ShopBloc({
+  required GetShopUseCase getShopUseCase,
+  required UpdateShopUseCase updateShopUseCase,
+})
+```
+
+### Events
+
+<Expandable title="LoadShopEvent">
+  Triggers loading of shop details.
+
+  ```dart
+  class LoadShopEvent extends ShopEvent {}
+  ```
+</Expandable>
+
+<Expandable title="UpdateShopEvent">
+  <ParamField path="shop" type="Shop" required>
+    Shop data to update
+  </ParamField>
+
+  ```dart
+  class UpdateShopEvent extends ShopEvent {
+    final Shop shop;
+    const UpdateShopEvent(this.shop);
+  }
+  ```
+</Expandable>
+
+### States
+
+<Expandable title="ShopInitial">
+  Initial state before any operations.
+
+  ```dart
+  class ShopInitial extends ShopState {}
+  ```
+</Expandable>
+
+<Expandable title="ShopLoading">
+  State while loading or updating shop data.
+
+  ```dart
+  class ShopLoading extends ShopState {}
+  ```
+</Expandable>
+
+<Expandable title="ShopLoaded">
+  State when shop data is successfully loaded.
+
+  <ResponseField name="shop" type="Shop" required>
+    Loaded shop data
+  </ResponseField>
+
+  ```dart
+  class ShopLoaded extends ShopState {
+    final Shop shop;
+    const ShopLoaded(this.shop);
+  }
+  ```
+</Expandable>
+
+<Expandable title="ShopError">
+  State when an error occurs.
+
+  <ResponseField name="message" type="String" required>
+    Error message
+  </ResponseField>
+
+  ```dart
+  class ShopError extends ShopState {
+    final String message;
+    const ShopError(this.message);
+  }
+  ```
+</Expandable>
+
+<Expandable title="ShopOperationSuccess">
+  State when update operation succeeds.
+
+  ```dart
+  class ShopOperationSuccess extends ShopState {}
+  ```
+</Expandable>
+
+### Usage Example
+
+```dart
+// Load shop details
+context.read<ShopBloc>().add(LoadShopEvent());
+
+// Update shop details
+final shop = Shop(
+  name: 'My Shop',
+  addressLine1: '123 Main St',
+  addressLine2: 'City, State 12345',
+  phoneNumber: '1234567890',
+  upiId: 'shop@upi',
+  footerText: 'Thank you for shopping!',
+);
+context.read<ShopBloc>().add(UpdateShopEvent(shop));
+
+// Listen to state
+BlocBuilder<ShopBloc, ShopState>(
+  builder: (context, state) {
+    if (state is ShopLoading) {
+      return CircularProgressIndicator();
+    } else if (state is ShopLoaded) {
+      return Text(state.shop.name);
+    } else if (state is ShopError) {
+      return Text('Error: ${state.message}');
+    }
+    return SizedBox();
+  },
+)
+```

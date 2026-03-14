@@ -1,0 +1,518 @@
+---
+title: 'Shop Settings'
+description: 'Configure shop details, business information, and receipt customization'
+icon: 'store'
+---
+
+## Overview
+
+Shop Settings allow you to configure your business information that appears on receipts, UPI payment QR codes, and throughout the app. This includes shop name, address, contact details, UPI ID, and custom receipt footer text.
+
+## Shop Entity
+
+Shop information is stored in a structured entity:
+
+```dart lib/features/shop/domain/entities/shop.dart
+class Shop extends Equatable {
+  final String name;
+  final String addressLine1;
+  final String addressLine2;
+  final String phoneNumber;
+  final String upiId;
+  final String footerText;
+
+  const Shop({
+    this.name = '',
+    this.addressLine1 = '',
+    this.addressLine2 = '',
+    this.phoneNumber = '',
+    this.upiId = '',
+    this.footerText = '',
+  });
+
+  Shop copyWith({
+    String? name,
+    String? addressLine1,
+    String? addressLine2,
+    String? phoneNumber,
+    String? upiId,
+    String? footerText,
+  }) {
+    return Shop(
+      name: name ?? this.name,
+      addressLine1: addressLine1 ?? this.addressLine1,
+      addressLine2: addressLine2 ?? this.addressLine2,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      upiId: upiId ?? this.upiId,
+      footerText: footerText ?? this.footerText,
+    );
+  }
+}
+```
+
+<Note>
+  All fields have default empty values, making them optional during initial setup.
+</Note>
+
+## Configuration Fields
+
+### Shop Name
+
+Your business name displayed prominently on receipts and the app.
+
+```dart lib/features/shop/presentation/pages/shop_details_page.dart
+TextFormField(
+  controller: _nameController,
+  decoration: const InputDecoration(
+    hintText: 'e.g. QuickMart Superstore',
+  ),
+  validator: AppValidators.required('Required'),
+)
+```
+
+<Info>
+  The shop name also appears in UPI payment QR codes as the payee name.
+</Info>
+
+### Address Lines
+
+Two address fields for complete location information:
+
+```dart
+// Address Line 1 (Required)
+TextFormField(
+  controller: _address1Controller,
+  decoration: const InputDecoration(
+    hintText: 'Samrajpet, Mecheri',
+  ),
+  validator: AppValidators.required('Required'),
+)
+
+// Address Line 2 (Optional)
+TextFormField(
+  controller: _address2Controller,
+  decoration: const InputDecoration(
+    hintText: 'Salem - 636453',
+  ),
+)
+```
+
+### Phone Number
+
+Contact number for customer support:
+
+```dart
+TextFormField(
+  controller: _phoneController,
+  decoration: const InputDecoration(
+    hintText: '+91 7010674588',
+  ),
+  keyboardType: TextInputType.phone,
+  validator: AppValidators.required('Required'),
+)
+```
+
+### UPI ID
+
+Unified Payments Interface ID for digital payments:
+
+```dart
+TextFormField(
+  controller: _upiController,
+  decoration: const InputDecoration(
+    hintText: 'dineshsowndar@oksbi',
+  ),
+)
+```
+
+<Warning>
+  Ensure your UPI ID is correct. Incorrect UPI IDs will result in failed payment QR codes.
+</Warning>
+
+### Receipt Footer
+
+Custom message at the bottom of printed receipts:
+
+```dart
+TextFormField(
+  controller: _footerController,
+  decoration: const InputDecoration(
+    hintText: 'Thank you, Visit again!!!',
+  ),
+  maxLines: 2,
+  maxLength: 60,
+)
+```
+
+<Tip>
+  Use the footer for thank you messages, promotional text, or return policies (max 60 characters).
+</Tip>
+
+## Saving Shop Details
+
+<Steps>
+  <Step title="Validate Form">
+    Ensure all required fields are filled:
+    
+    ```dart lib/features/shop/presentation/pages/shop_details_page.dart
+    void _saveShop() {
+      if (_formKey.currentState!.validate()) {
+        // Proceed with saving
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Create Shop Object">
+    Build the shop entity from form fields:
+    
+    ```dart
+    final shop = Shop(
+      name: _nameController.text,
+      addressLine1: _address1Controller.text,
+      addressLine2: _address2Controller.text,
+      phoneNumber: _phoneController.text,
+      upiId: _upiController.text,
+      footerText: _footerController.text,
+    );
+    ```
+  </Step>
+
+  <Step title="Update via BLoC">
+    Dispatch the update event:
+    
+    ```dart
+    context.read<ShopBloc>().add(UpdateShopEvent(shop));
+    ```
+  </Step>
+
+  <Step title="Show Confirmation">
+    Display success message:
+    
+    ```dart
+    BlocListener<ShopBloc, ShopState>(
+      listener: (context, state) {
+        if (state is ShopOperationSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Shop details saved!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          context.pop();
+        }
+      },
+    )
+    ```
+  </Step>
+</Steps>
+
+## Loading Shop Details
+
+Shop details are loaded automatically when entering the page:
+
+```dart lib/features/shop/presentation/pages/shop_details_page.dart
+@override
+void initState() {
+  super.initState();
+  
+  // Initialize controllers
+  _nameController = TextEditingController();
+  _address1Controller = TextEditingController();
+  _address2Controller = TextEditingController();
+  _phoneController = TextEditingController();
+  _upiController = TextEditingController();
+  _footerController = TextEditingController();
+
+  // Load shop data
+  context.read<ShopBloc>().add(LoadShopEvent());
+}
+
+void _updateControllers(Shop shop) {
+  if (_nameController.text.isEmpty && shop.name.isNotEmpty) {
+    _nameController.text = shop.name;
+    _address1Controller.text = shop.addressLine1;
+    _address2Controller.text = shop.addressLine2;
+    _phoneController.text = shop.phoneNumber;
+    _upiController.text = shop.upiId;
+    _footerController.text = shop.footerText;
+  }
+}
+```
+
+## Usage in Receipts
+
+Shop details are used when printing receipts:
+
+```dart
+// Get shop details from state
+if (shopState is ShopLoaded) {
+  context.read<BillingBloc>().add(
+    PrintReceiptEvent(
+      shopName: shopState.shop.name,
+      address1: shopState.shop.addressLine1,
+      address2: shopState.shop.addressLine2,
+      phone: shopState.shop.phoneNumber,
+      footer: shopState.shop.footerText,
+    ),
+  );
+}
+```
+
+## UPI QR Code Generation
+
+Shop details power the UPI payment QR code:
+
+```dart lib/features/billing/presentation/pages/checkout_page.dart
+BlocBuilder<ShopBloc, ShopState>(
+  builder: (context, shopState) {
+    String upiId = '';
+    String shopName = 'Shop';
+
+    if (shopState is ShopLoaded) {
+      upiId = shopState.shop.upiId;
+      shopName = shopState.shop.name;
+    }
+
+    return upiId.isNotEmpty
+      ? PrettyQrView.data(
+          data: 'upi://pay?pa=$upiId&pn=$shopName&am=${amount.toStringAsFixed(2)}&cu=INR',
+        )
+      : const SizedBox.shrink();
+  },
+)
+```
+
+<Info>
+  The UPI QR code only appears on the checkout page if a UPI ID is configured.
+</Info>
+
+## Settings Page Integration
+
+The shop details are accessible from the Settings page:
+
+```dart lib/features/settings/presentation/pages/settings_page.dart
+_buildListItem(
+  icon: Icons.storefront,
+  title: 'Shop Details',
+  subtitle: 'Edit business info & address',
+  onTap: () => context.push('/shop'),
+)
+```
+
+### Shop Profile Display
+
+The settings page shows shop initials in a profile avatar:
+
+```dart
+BlocBuilder<ShopBloc, ShopState>(
+  builder: (context, state) {
+    String shopName = 'Elite Groceries';
+    String initials = 'EG';
+    
+    if (state is ShopLoaded && state.shop.name.isNotEmpty) {
+      shopName = state.shop.name;
+      final parts = shopName.split(' ');
+      initials = parts
+          .take(2)
+          .map((p) => p.isNotEmpty ? p[0].toUpperCase() : '')
+          .join('');
+      if (initials.isEmpty) initials = 'S';
+    }
+
+    return Column(
+      children: [
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            initials,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Text(
+          shopName.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  },
+)
+```
+
+## Form Components
+
+### Text Field Builder
+
+Reusable text field component:
+
+```dart lib/features/shop/presentation/pages/shop_details_page.dart
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String hint,
+  TextInputType? keyboardType,
+  int maxLines = 1,
+  int? maxLength,
+  String? Function(String?)? validator,
+}) {
+  return TextFormField(
+    controller: controller,
+    keyboardType: keyboardType,
+    maxLines: maxLines,
+    maxLength: maxLength,
+    textCapitalization: TextCapitalization.words,
+    validator: validator,
+    decoration: InputDecoration(
+      hintText: hint,
+    ),
+  );
+}
+```
+
+## Shop Use Cases
+
+The shop feature implements clean architecture use cases:
+
+<AccordionGroup>
+  <Accordion title="LoadShopUseCase">
+    Retrieves shop details from storage.
+    
+    ```dart
+    class LoadShopUseCase implements UseCase<Shop, NoParams> {
+      final ShopRepository repository;
+
+      @override
+      Future<Either<Failure, Shop>> call(NoParams params) {
+        return repository.getShop();
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="UpdateShopUseCase">
+    Saves or updates shop information.
+    
+    ```dart
+    class UpdateShopUseCase implements UseCase<void, Shop> {
+      final ShopRepository repository;
+
+      @override
+      Future<Either<Failure, void>> call(Shop params) {
+        return repository.updateShop(params);
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## State Management
+
+Shop details are managed via BLoC:
+
+```dart
+// Load shop details
+context.read<ShopBloc>().add(LoadShopEvent());
+
+// Update shop details
+context.read<ShopBloc>().add(UpdateShopEvent(shop));
+
+// Listen to state changes
+BlocListener<ShopBloc, ShopState>(
+  listener: (context, state) {
+    if (state is ShopLoaded) {
+      // Shop data loaded
+    } else if (state is ShopOperationSuccess) {
+      // Update successful
+    } else if (state is ShopError) {
+      // Handle error
+    }
+  },
+)
+```
+
+## Validation Rules
+
+<CardGroup cols={2}>
+  <Card title="Required Fields" icon="asterisk">
+    - Shop Name
+    - Address Line 1
+    - Phone Number
+  </Card>
+  
+  <Card title="Optional Fields" icon="circle-check">
+    - Address Line 2
+    - UPI ID
+    - Footer Text
+  </Card>
+  
+  <Card title="Length Limits" icon="text-width">
+    - Footer: 60 characters max
+  </Card>
+  
+  <Card title="Format Validation" icon="check-double">
+    - Phone: Numeric input type
+    - All text: Word capitalization
+  </Card>
+</CardGroup>
+
+## Receipt Appearance
+
+Example receipt with configured shop details:
+
+```
+       Elite Groceries        ← Shop Name (Large, Bold)
+     Samrajpet, Mecheri       ← Address Line 1
+       Salem - 636453         ← Address Line 2
+      +91 7010674588          ← Phone Number
+   14-03-2026 02:30 PM        ← Auto-generated timestamp
+--------------------------------
+[Items Table]
+--------------------------------
+                TOTAL: 220.00
+
+   Thank you, Visit again!!!  ← Footer Text
+```
+
+## Best Practices
+
+1. **Complete Setup**: Fill all required fields for professional receipts
+2. **Test UPI ID**: Verify UPI ID works by scanning the generated QR code
+3. **Keep Footer Short**: Use concise messages that fit printer width
+4. **Update Regularly**: Keep contact information current
+5. **Professional Naming**: Use proper capitalization for shop name
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="UPI QR code not showing">
+    Ensure you have entered a UPI ID in the shop settings. The QR code only appears when a UPI ID is configured.
+  </Accordion>
+
+  <Accordion title="Receipt missing shop details">
+    Load shop details before printing by ensuring `LoadShopEvent` is dispatched when the app starts or settings page opens.
+  </Accordion>
+
+  <Accordion title="Save button not working">
+    Check that all required fields (name, address1, phone) are filled. The form validation prevents saving incomplete data.
+  </Accordion>
+
+  <Accordion title="Footer text too long">
+    The footer is limited to 60 characters to fit on thermal printer width. Shorten your message to fit within this limit.
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+- [Thermal Printing](/features/thermal-printing) - How shop details appear on printed receipts
+- [Billing & Checkout](/features/billing-checkout) - UPI QR code generation using shop details

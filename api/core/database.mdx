@@ -1,0 +1,166 @@
+---
+title: 'HiveDatabase'
+description: 'Core database management class for Hive local storage'
+---
+
+## Overview
+
+The `HiveDatabase` class provides centralized management for Hive local storage, including initialization, adapter registration, and box access for products, shop data, and app settings.
+
+**Location:** `lib/core/data/hive_database.dart`
+
+## Constants
+
+### Box Names
+
+<ParamField path="productBoxName" type="String" default="'products'">
+  Box name for storing product models
+</ParamField>
+
+<ParamField path="shopBoxName" type="String" default="'shop'">
+  Box name for storing shop model data
+</ParamField>
+
+<ParamField path="settingsBoxName" type="String" default="'settings'">
+  Box name for storing app settings as key-value pairs
+</ParamField>
+
+## Methods
+
+### init()
+
+Initializes Hive database, registers adapters, and opens all required boxes.
+
+```dart
+static Future<void> init() async
+```
+
+**Behavior:**
+1. Initializes Hive with Flutter support using `Hive.initFlutter()`
+2. Registers type adapters for `ProductModel` and `ShopModel`
+3. Opens three boxes: products (typed), shop (typed), and settings (generic)
+
+**Returns:** `Future<void>` - Completes when all boxes are opened
+
+**Usage:**
+
+```dart
+// Initialize database on app startup
+await HiveDatabase.init();
+```
+
+## Box Accessors
+
+### productBox
+
+Gets the typed box for product storage.
+
+```dart
+static Box<ProductModel> get productBox
+```
+
+<ResponseField name="return" type="Box<ProductModel>">
+  Hive box containing ProductModel objects
+</ResponseField>
+
+**Usage:**
+
+```dart
+final products = HiveDatabase.productBox.values.toList();
+HiveDatabase.productBox.put('product-123', productModel);
+```
+
+### shopBox
+
+Gets the typed box for shop data storage.
+
+```dart
+static Box<ShopModel> get shopBox
+```
+
+<ResponseField name="return" type="Box<ShopModel>">
+  Hive box containing ShopModel objects
+</ResponseField>
+
+**Usage:**
+
+```dart
+final shopData = HiveDatabase.shopBox.get('shop-info');
+HiveDatabase.shopBox.put('shop-info', shopModel);
+```
+
+### settingsBox
+
+Gets the generic box for app settings (key-value storage).
+
+```dart
+static Box get settingsBox
+```
+
+<ResponseField name="return" type="Box">
+  Generic Hive box for storing settings as key-value pairs
+</ResponseField>
+
+**Usage:**
+
+```dart
+final theme = HiveDatabase.settingsBox.get('theme', defaultValue: 'light');
+HiveDatabase.settingsBox.put('language', 'en');
+```
+
+## Implementation Details
+
+### Registered Adapters
+
+The database automatically registers these Hive type adapters during initialization:
+
+- `ProductModelAdapter` - Serializes/deserializes ProductModel
+- `ShopModelAdapter` - Serializes/deserializes ShopModel
+
+### Box Types
+
+| Box Name | Type | Purpose |
+|----------|------|--------|
+| products | `Box<ProductModel>` | Typed storage for product catalog |
+| shop | `Box<ShopModel>` | Typed storage for shop information |
+| settings | `Box` | Generic storage for app settings |
+
+## Best Practices
+
+1. **Always initialize first:** Call `HiveDatabase.init()` in your app's main function before accessing any boxes
+2. **Use typed boxes:** Leverage the typed box accessors (`productBox`, `shopBox`) for compile-time safety
+3. **Settings storage:** Use the generic `settingsBox` for simple key-value data like preferences
+4. **Error handling:** Wrap database operations in try-catch blocks to handle potential Hive exceptions
+
+## Example
+
+```dart
+import 'package:flutter/material.dart';
+import 'core/data/hive_database.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Hive database
+  await HiveDatabase.init();
+  
+  runApp(MyApp());
+}
+
+class ProductRepository {
+  // Add product to database
+  Future<void> addProduct(ProductModel product) async {
+    await HiveDatabase.productBox.put(product.id, product);
+  }
+  
+  // Get all products
+  List<ProductModel> getAllProducts() {
+    return HiveDatabase.productBox.values.toList();
+  }
+  
+  // Delete product
+  Future<void> deleteProduct(String id) async {
+    await HiveDatabase.productBox.delete(id);
+  }
+}
+```

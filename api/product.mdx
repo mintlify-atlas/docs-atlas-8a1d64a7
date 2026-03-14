@@ -1,0 +1,315 @@
+---
+title: 'Product API'
+description: 'Product management APIs, entities, and BLoC'
+---
+
+## Product Entity
+
+The `Product` entity represents a product in the billing system.
+
+### Properties
+
+<ParamField path="id" type="String" required>
+  Unique identifier for the product. Usually the barcode, but kept separate for flexibility.
+</ParamField>
+
+<ParamField path="name" type="String" required>
+  Product name
+</ParamField>
+
+<ParamField path="barcode" type="String" required>
+  Product barcode for scanning
+</ParamField>
+
+<ParamField path="price" type="double" required>
+  Product price
+</ParamField>
+
+<ParamField path="stock" type="int" default="0">
+  Current stock quantity
+</ParamField>
+
+### Constructor
+
+```dart
+const Product({
+  required String id,
+  required String name,
+  required String barcode,
+  required double price,
+  int stock = 0,
+})
+```
+
+---
+
+## ProductRepository
+
+Abstract repository interface for product data operations.
+
+### Methods
+
+<Expandable title="getProducts()">
+  <ParamField path="returns" type="Future<Either<Failure, List<Product>>>">
+    Returns all products or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, List<Product>>> getProducts()
+  ```
+</Expandable>
+
+<Expandable title="getProductByBarcode(String barcode)">
+  <ParamField path="barcode" type="String" required>
+    Barcode to search for
+  </ParamField>
+  
+  <ParamField path="returns" type="Future<Either<Failure, Product>>">
+    Returns the product with matching barcode or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, Product>> getProductByBarcode(String barcode)
+  ```
+</Expandable>
+
+<Expandable title="addProduct(Product product)">
+  <ParamField path="product" type="Product" required>
+    Product to add
+  </ParamField>
+  
+  <ParamField path="returns" type="Future<Either<Failure, void>>">
+    Returns success or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, void>> addProduct(Product product)
+  ```
+</Expandable>
+
+<Expandable title="updateProduct(Product product)">
+  <ParamField path="product" type="Product" required>
+    Product with updated data
+  </ParamField>
+  
+  <ParamField path="returns" type="Future<Either<Failure, void>>">
+    Returns success or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, void>> updateProduct(Product product)
+  ```
+</Expandable>
+
+<Expandable title="deleteProduct(String id)">
+  <ParamField path="id" type="String" required>
+    Product ID to delete
+  </ParamField>
+  
+  <ParamField path="returns" type="Future<Either<Failure, void>>">
+    Returns success or a failure
+  </ParamField>
+
+  ```dart
+  Future<Either<Failure, void>> deleteProduct(String id)
+  ```
+</Expandable>
+
+---
+
+## Use Cases
+
+### GetProductsUseCase
+
+Retrieves all products from the repository.
+
+```dart
+class GetProductsUseCase implements UseCase<List<Product>, NoParams> {
+  final ProductRepository repository;
+
+  GetProductsUseCase(this.repository);
+
+  Future<Either<Failure, List<Product>>> call(NoParams params)
+}
+```
+
+### AddProductUseCase
+
+Adds a new product to the repository.
+
+```dart
+class AddProductUseCase implements UseCase<void, Product> {
+  final ProductRepository repository;
+
+  AddProductUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(Product params)
+}
+```
+
+### UpdateProductUseCase
+
+Updates an existing product in the repository.
+
+```dart
+class UpdateProductUseCase implements UseCase<void, Product> {
+  final ProductRepository repository;
+
+  UpdateProductUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(Product params)
+}
+```
+
+### DeleteProductUseCase
+
+Deletes a product by ID.
+
+```dart
+class DeleteProductUseCase implements UseCase<void, String> {
+  final ProductRepository repository;
+
+  DeleteProductUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String params)
+}
+```
+
+### GetProductByBarcodeUseCase
+
+Retrieves a product by its barcode.
+
+```dart
+class GetProductByBarcodeUseCase implements UseCase<Product, String> {
+  final ProductRepository repository;
+
+  GetProductByBarcodeUseCase(this.repository);
+
+  Future<Either<Failure, Product>> call(String params)
+}
+```
+
+---
+
+## ProductBloc
+
+BLoC for managing product state and events.
+
+### Constructor
+
+```dart
+ProductBloc({
+  required GetProductsUseCase getProductsUseCase,
+  required AddProductUseCase addProductUseCase,
+  required UpdateProductUseCase updateProductUseCase,
+  required DeleteProductUseCase deleteProductUseCase,
+})
+```
+
+### Events
+
+<Expandable title="LoadProducts">
+  Triggers loading of all products.
+
+  ```dart
+  class LoadProducts extends ProductEvent {}
+  ```
+</Expandable>
+
+<Expandable title="AddProduct">
+  <ParamField path="product" type="Product" required>
+    Product to add
+  </ParamField>
+
+  ```dart
+  class AddProduct extends ProductEvent {
+    final Product product;
+    const AddProduct(this.product);
+  }
+  ```
+</Expandable>
+
+<Expandable title="UpdateProduct">
+  <ParamField path="product" type="Product" required>
+    Product to update
+  </ParamField>
+
+  ```dart
+  class UpdateProduct extends ProductEvent {
+    final Product product;
+    const UpdateProduct(this.product);
+  }
+  ```
+</Expandable>
+
+<Expandable title="DeleteProduct">
+  <ParamField path="id" type="String" required>
+    Product ID to delete
+  </ParamField>
+
+  ```dart
+  class DeleteProduct extends ProductEvent {
+    final String id;
+    const DeleteProduct(this.id);
+  }
+  ```
+</Expandable>
+
+### State
+
+<ResponseField name="status" type="ProductStatus" required>
+  Current status: `initial`, `loading`, `loaded`, `error`, or `success`
+</ResponseField>
+
+<ResponseField name="products" type="List<Product>" default="[]">
+  List of loaded products
+</ResponseField>
+
+<ResponseField name="message" type="String?">
+  Success or error message
+</ResponseField>
+
+```dart
+enum ProductStatus { initial, loading, loaded, error, success }
+
+class ProductState extends Equatable {
+  final ProductStatus status;
+  final List<Product> products;
+  final String? message;
+
+  const ProductState({
+    this.status = ProductStatus.initial,
+    this.products = const [],
+    this.message,
+  });
+
+  ProductState copyWith({
+    ProductStatus? status,
+    List<Product>? products,
+    String? message,
+  });
+}
+```
+
+### Usage Example
+
+```dart
+// Load products
+context.read<ProductBloc>().add(LoadProducts());
+
+// Add a product
+final product = Product(
+  id: '123',
+  name: 'Apple',
+  barcode: '123456789',
+  price: 25.0,
+  stock: 100,
+);
+context.read<ProductBloc>().add(AddProduct(product));
+
+// Update a product
+context.read<ProductBloc>().add(UpdateProduct(updatedProduct));
+
+// Delete a product
+context.read<ProductBloc>().add(DeleteProduct('123'));
+```

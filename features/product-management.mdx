@@ -1,0 +1,346 @@
+---
+title: 'Product Management'
+description: 'Manage your product catalog with CRUD operations, barcode assignment, and search functionality'
+icon: 'box'
+---
+
+## Overview
+
+The Product Management feature allows you to create, read, update, and delete products in your inventory. Each product includes a name, barcode, price, and optional stock tracking. The app uses a clean architecture with BLoC pattern for state management.
+
+## Product Entity
+
+Products are defined with the following attributes:
+
+```dart lib/features/product/domain/entities/product.dart
+class Product extends Equatable {
+  final String id;        // Unique identifier
+  final String name;      // Product name
+  final String barcode;   // Barcode/SKU
+  final double price;     // Product price
+  final int stock;        // Stock quantity (optional)
+
+  const Product({
+    required this.id,
+    required this.name,
+    required this.barcode,
+    required this.price,
+    this.stock = 0,
+  });
+}
+```
+
+## Core Operations
+
+<Steps>
+  <Step title="View Products">
+    Access the product list from the Settings page. Products are displayed in a searchable list with filtering capabilities.
+    
+    ```dart
+    // Products are loaded automatically via BLoC
+    context.read<ProductBloc>().add(LoadProducts());
+    ```
+  </Step>
+
+  <Step title="Add Product">
+    Create new products with barcode scanning or manual entry.
+    
+    ```dart lib/features/product/presentation/pages/add_product_page.dart
+    void _submit() {
+      if (_formKey.currentState!.validate()) {
+        _formKey.currentState!.save();
+
+        // Check for duplicate barcodes
+        final productState = context.read<ProductBloc>().state;
+        final existingProduct = productState.products
+            .where((p) => p.barcode == _barcode)
+            .firstOrNull;
+
+        if (existingProduct != null) {
+          // Show error - barcode already exists
+          return;
+        }
+
+        // Create new product
+        final product = Product(
+          id: const Uuid().v4(),
+          name: _name,
+          barcode: _barcode,
+          price: _price,
+        );
+
+        context.read<ProductBloc>().add(AddProduct(product));
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Update Product">
+    Edit existing product details including name, price, and barcode.
+    
+    ```dart
+    final updatedProduct = product.copyWith(
+      name: newName,
+      price: newPrice,
+    );
+    
+    context.read<ProductBloc>().add(UpdateProduct(updatedProduct));
+    ```
+  </Step>
+
+  <Step title="Delete Product">
+    Remove products from inventory with confirmation dialog.
+    
+    ```dart lib/features/product/presentation/pages/product_list_page.dart
+    void _confirmDelete(BuildContext context, Product product) {
+      showDialog(
+        context: context,
+        builder: (innerContext) {
+          return AlertDialog(
+            title: const Text('Delete Product'),
+            content: Text('Are you sure you want to delete ${product.name}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(innerContext),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  context.read<ProductBloc>().add(DeleteProduct(product.id));
+                  Navigator.pop(innerContext);
+                },
+                child: const Text('Delete'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Barcode Integration
+
+Products can be assigned barcodes through camera scanning:
+
+```dart lib/features/product/presentation/pages/add_product_page.dart
+void _scanBarcode() async {
+  // Navigate to scanner page
+  final result = await context.push<String>('/scanner');
+  
+  if (result != null && result.isNotEmpty) {
+    setState(() {
+      _barcode = result;
+    });
+  }
+}
+```
+
+<Info>
+  The barcode scanner automatically populates the barcode field. Users can also manually enter barcodes if needed.
+</Info>
+
+## Search & Filter
+
+The product list includes real-time search functionality:
+
+```dart lib/features/product/presentation/pages/product_list_page.dart
+final filteredProducts = state.products
+    .where((product) =>
+        product.name.toLowerCase().contains(_searchQuery) ||
+        product.barcode.toLowerCase().contains(_searchQuery))
+    .toList();
+```
+
+### Search by Scanning
+
+You can also search products by scanning their barcode:
+
+```dart
+void _scanQR(List<Product> products) async {
+  final barcode = await context.push<String>('/scanner');
+  
+  if (barcode != null && barcode.isNotEmpty) {
+    final matchedProduct = products
+        .where((p) => p.barcode == barcode)
+        .firstOrNull;
+        
+    if (matchedProduct != null) {
+      _searchController.text = matchedProduct.name;
+    }
+  }
+}
+```
+
+## Use Cases
+
+The app implements clean architecture with dedicated use cases:
+
+<AccordionGroup>
+  <Accordion title="GetProductsUseCase">
+    Retrieves all products from the repository.
+    
+    ```dart lib/features/product/domain/usecases/product_usecases.dart
+    class GetProductsUseCase implements UseCase<List<Product>, NoParams> {
+      final ProductRepository repository;
+
+      @override
+      Future<Either<Failure, List<Product>>> call(NoParams params) {
+        return repository.getProducts();
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="AddProductUseCase">
+    Adds a new product to the repository.
+    
+    ```dart
+    class AddProductUseCase implements UseCase<void, Product> {
+      final ProductRepository repository;
+
+      @override
+      Future<Either<Failure, void>> call(Product params) {
+        return repository.addProduct(params);
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="UpdateProductUseCase">
+    Updates an existing product in the repository.
+    
+    ```dart
+    class UpdateProductUseCase implements UseCase<void, Product> {
+      final ProductRepository repository;
+
+      @override
+      Future<Either<Failure, void>> call(Product params) {
+        return repository.updateProduct(params);
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="DeleteProductUseCase">
+    Deletes a product by ID.
+    
+    ```dart
+    class DeleteProductUseCase implements UseCase<void, String> {
+      final ProductRepository repository;
+
+      @override
+      Future<Either<Failure, void>> call(String params) {
+        return repository.deleteProduct(params);
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="GetProductByBarcodeUseCase">
+    Retrieves a specific product by its barcode.
+    
+    ```dart
+    class GetProductByBarcodeUseCase implements UseCase<Product, String> {
+      final ProductRepository repository;
+
+      @override
+      Future<Either<Failure, Product>> call(String params) {
+        return repository.getProductByBarcode(params);
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Form Validation
+
+Products use validators to ensure data integrity:
+
+```dart lib/features/product/presentation/pages/add_product_page.dart
+TextFormField(
+  decoration: const InputDecoration(
+    hintText: 'Scan or enter barcode',
+  ),
+  validator: AppValidators.required('Please enter a barcode'),
+  onSaved: (value) => _barcode = value!,
+)
+
+TextFormField(
+  decoration: const InputDecoration(
+    hintText: 'e.g. Basmati Rice',
+  ),
+  validator: AppValidators.required('Please enter a name'),
+  onSaved: (value) => _name = value!,
+)
+
+TextFormField(
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(
+    hintText: '0.00',
+    prefixText: '₹ ',
+  ),
+  validator: AppValidators.price,
+  onSaved: (value) => _price = double.parse(value!),
+)
+```
+
+<Warning>
+  Barcode uniqueness is enforced. The app prevents adding multiple products with the same barcode.
+</Warning>
+
+## UI Components
+
+### Product List Item
+
+Each product is displayed with:
+- Product name and price
+- Edit button (navigates to edit page)
+- Delete button (shows confirmation dialog)
+
+```dart
+Container(
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: borderColor),
+  ),
+  child: Row(
+    children: [
+      // Product details
+      Column(
+        children: [
+          Text(product.name),
+          Text('₹${product.price.toStringAsFixed(2)}'),
+        ],
+      ),
+      // Action buttons
+      IconButton(
+        icon: Icon(Icons.edit_rounded),
+        onPressed: () => context.push('/products/edit/${product.id}'),
+      ),
+      IconButton(
+        icon: Icon(Icons.delete_outline_rounded),
+        onPressed: () => _confirmDelete(context, product),
+      ),
+    ],
+  ),
+)
+```
+
+<Tip>
+  Use the floating action button (+) to quickly add new products from the product list page.
+</Tip>
+
+## Best Practices
+
+1. **Unique Barcodes**: Always ensure each product has a unique barcode to prevent conflicts during checkout
+2. **Validation**: All required fields (name, barcode, price) must be filled before submission
+3. **Price Format**: Prices support decimal values and are displayed with 2 decimal places
+4. **Search Optimization**: Use the search feature to quickly find products in large catalogs
+
+## Related Features
+
+- [Barcode Scanning](/features/barcode-scanning) - Learn about camera-based barcode scanning
+- [Billing & Checkout](/features/billing-checkout) - Use products in the checkout process

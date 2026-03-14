@@ -1,0 +1,402 @@
+---
+title: 'Barcode Scanning'
+description: 'Camera-based barcode and QR code scanning using mobile_scanner package'
+icon: 'qrcode'
+---
+
+## Overview
+
+The Barcode Scanning feature provides real-time camera-based scanning for barcodes and QR codes. It's used throughout the app for adding products, searching inventory, and quick checkout operations.
+
+## Technology
+
+The app uses the `mobile_scanner` package for barcode detection:
+
+```yaml pubspec.yaml
+dependencies:
+  mobile_scanner: ^latest
+  vibration: ^latest  # For haptic feedback
+```
+
+## Scanner Implementation
+
+### Scanner Controller
+
+```dart lib/features/billing/presentation/pages/scanner_page.dart
+final MobileScannerController controller = MobileScannerController(
+  detectionSpeed: DetectionSpeed.noDuplicates,
+  returnImage: false,
+);
+```
+
+<Note>
+  `detectionSpeed: DetectionSpeed.noDuplicates` prevents multiple scans of the same barcode.
+</Note>
+
+### Scanner Widget
+
+```dart
+MobileScanner(
+  controller: controller,
+  onDetect: _onDetect,
+)
+```
+
+## Detection Logic
+
+<Steps>
+  <Step title="Capture Barcode">
+    When a barcode is detected, the callback receives a `BarcodeCapture` object.
+    
+    ```dart lib/features/billing/presentation/pages/scanner_page.dart
+    void _onDetect(BarcodeCapture capture) async {
+      if (_isScanned) return;
+      
+      final List<Barcode> barcodes = capture.barcodes;
+
+      for (final barcode in barcodes) {
+        if (barcode.rawValue != null) {
+          _isScanned = true;
+          
+          // Vibrate on successful scan
+          final hasVibrator = await Vibration.hasVibrator();
+          if (hasVibrator == true) {
+            Vibration.vibrate();
+          }
+
+          // Return barcode value
+          if (mounted) {
+            context.pop(barcode.rawValue);
+          }
+          break;
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Prevent Duplicates">
+    The `_isScanned` flag prevents processing multiple barcodes from the same scan session.
+    
+    ```dart
+    if (_isScanned) return;
+    ```
+  </Step>
+
+  <Step title="Haptic Feedback">
+    Provide tactile confirmation when a barcode is successfully detected.
+    
+    ```dart
+    final hasVibrator = await Vibration.hasVibrator();
+    if (hasVibrator == true) {
+      Vibration.vibrate();
+    }
+    ```
+  </Step>
+
+  <Step title="Return Result">
+    Pop the navigation stack and return the scanned barcode value.
+    
+    ```dart
+    context.pop(barcode.rawValue);
+    ```
+  </Step>
+</Steps>
+
+## Scanner UI
+
+### Visual Guide Overlay
+
+The scanner displays a custom overlay to guide users:
+
+```dart lib/features/billing/presentation/pages/scanner_page.dart
+Stack(
+  children: [
+    // Camera view
+    MobileScanner(
+      controller: controller,
+      onDetect: _onDetect,
+    ),
+    
+    // Scanning frame overlay
+    Container(
+      child: Center(
+        child: Container(
+          width: 250,
+          height: 250,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.green, width: 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _corner(0),
+                    _corner(1),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _corner(3),
+                    _corner(2),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+    
+    // Instructions
+    const Positioned(
+      bottom: 40,
+      left: 0,
+      right: 0,
+      child: Text(
+        'Align barcode within frame',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontSize: 16),
+      ),
+    ),
+  ],
+)
+```
+
+### Corner Markers
+
+```dart
+Widget _corner(int index) {
+  return Container(
+    width: 15,
+    height: 15,
+    decoration: BoxDecoration(
+      color: Colors.transparent,
+      border: Border.all(color: Colors.white, width: 2),
+    ),
+  );
+}
+```
+
+<Info>
+  The scanning frame provides a visual target area to help users align barcodes correctly.
+</Info>
+
+## Usage Scenarios
+
+### Adding Products
+
+Scan barcodes when creating new products:
+
+```dart lib/features/product/presentation/pages/add_product_page.dart
+void _scanBarcode() async {
+  final result = await context.push<String>('/scanner');
+  
+  if (result != null && result.isNotEmpty) {
+    setState(() {
+      _barcode = result;
+    });
+  }
+}
+```
+
+### Searching Products
+
+Quickly find products in your inventory:
+
+```dart lib/features/product/presentation/pages/product_list_page.dart
+void _scanQR(List<Product> products) async {
+  final barcode = await context.push<String>('/scanner');
+  
+  if (barcode != null && barcode.isNotEmpty) {
+    final matchedProduct = products
+        .where((p) => p.barcode == barcode)
+        .firstOrNull;
+        
+    if (matchedProduct != null) {
+      _searchController.text = matchedProduct.name;
+    } else {
+      _searchController.text = barcode;
+    }
+  }
+}
+```
+
+### Checkout (Billing)
+
+Add products to cart by scanning during checkout:
+
+```dart
+// In home/billing page
+final barcode = await context.push<String>('/scanner');
+
+if (barcode != null) {
+  context.read<BillingBloc>().add(ScanBarcodeEvent(barcode));
+}
+```
+
+## Scanner Integration
+
+### UI Button
+
+Typical scanner button implementation:
+
+```dart
+Container(
+  decoration: BoxDecoration(
+    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: IconButton(
+    icon: const Icon(Icons.qr_code_scanner,
+        color: AppTheme.primaryColor),
+    onPressed: _scanBarcode,
+    padding: const EdgeInsets.all(14),
+  ),
+)
+```
+
+## Lifecycle Management
+
+### Dispose Controller
+
+Always dispose the scanner controller to free resources:
+
+```dart lib/features/billing/presentation/pages/scanner_page.dart
+@override
+void dispose() {
+  controller.dispose();
+  super.dispose();
+}
+```
+
+<Warning>
+  Failing to dispose the controller can cause camera resource leaks and battery drain.
+</Warning>
+
+## Supported Barcode Types
+
+The `mobile_scanner` package supports various barcode formats:
+
+<CardGroup cols={2}>
+  <Card title="1D Barcodes" icon="barcode">
+    - UPC-A, UPC-E
+    - EAN-8, EAN-13
+    - Code 39, Code 93
+    - Code 128
+    - ITF
+  </Card>
+  <Card title="2D Codes" icon="qrcode">
+    - QR Code
+    - Data Matrix
+    - PDF417
+    - Aztec
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+### No Barcode Detected
+
+```dart
+void _onDetect(BarcodeCapture capture) async {
+  if (_isScanned) return;
+  
+  final List<Barcode> barcodes = capture.barcodes;
+  
+  // Check if any valid barcode exists
+  for (final barcode in barcodes) {
+    if (barcode.rawValue != null) {
+      // Process barcode
+    }
+  }
+  
+  // If no valid barcode found, continue scanning
+}
+```
+
+### Camera Permissions
+
+The app handles camera permissions automatically, but users may need to grant permission in device settings if previously denied.
+
+<Tip>
+  If scanning fails, check that camera permissions are granted in the app settings.
+</Tip>
+
+## Performance Optimization
+
+### No Image Return
+
+```dart
+MobileScannerController(
+  detectionSpeed: DetectionSpeed.noDuplicates,
+  returnImage: false,  // Don't return camera frames
+)
+```
+
+Setting `returnImage: false` improves performance by not processing camera frames into images.
+
+### Single Scan Mode
+
+```dart
+if (_isScanned) return;
+```
+
+The scanner exits immediately after detecting one barcode, preventing unnecessary processing.
+
+## Navigation Flow
+
+```dart
+// Navigate to scanner
+final barcode = await context.push<String>('/scanner');
+
+// Scanner returns result
+context.pop(barcode.rawValue);
+
+// Handle result
+if (barcode != null && barcode.isNotEmpty) {
+  // Process barcode
+}
+```
+
+## Best Practices
+
+1. **Single detection**: Use `DetectionSpeed.noDuplicates` to prevent multiple scans
+2. **Haptic feedback**: Always vibrate on successful scan for user confirmation
+3. **Visual guides**: Provide clear visual indicators of the scanning area
+4. **Quick exit**: Return immediately after successful scan
+5. **Dispose properly**: Always dispose the controller in the dispose method
+6. **Check null**: Validate that `barcode.rawValue` is not null before processing
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Scanner not opening">
+    Check camera permissions in device settings. The app needs camera access to scan barcodes.
+  </Accordion>
+
+  <Accordion title="Multiple scans detected">
+    Ensure `detectionSpeed: DetectionSpeed.noDuplicates` is set and the `_isScanned` flag is working correctly.
+  </Accordion>
+
+  <Accordion title="Barcode not detected">
+    - Ensure good lighting conditions
+    - Hold the device steady
+    - Align the barcode within the frame
+    - Try different distances from the barcode
+  </Accordion>
+
+  <Accordion title="App crashes after scanning">
+    Check that the controller is properly disposed in the dispose method.
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+- [Product Management](/features/product-management) - Assign barcodes to products
+- [Billing & Checkout](/features/billing-checkout) - Scan products during checkout

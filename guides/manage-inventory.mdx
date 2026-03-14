@@ -1,0 +1,381 @@
+---
+title: 'Manage Inventory'
+description: 'Add, edit, delete, and organize products with barcode scanning'
+icon: 'boxes-stacked'
+---
+
+This guide covers complete product inventory management in the Flutter Billing App, including adding products, scanning barcodes, and organizing your catalog.
+
+## Accessing Product Management
+
+<Steps>
+  <Step title="Open Settings">
+    From the home screen, tap the **Settings** icon (gear) in the top-right corner.
+  </Step>
+  
+  <Step title="Navigate to Products">
+    In the Management section, tap **Products** → "Manage stock and barcodes".
+  </Step>
+</Steps>
+
+This opens the Product List page where you can view, search, edit, and delete products.
+
+## Adding New Products
+
+### Method 1: Manual Entry with Barcode Scanner
+
+<Steps>
+  <Step title="Tap Add Product button">
+    On the Product List page, tap the blue **+** (floating action button) in the bottom-right corner.
+  </Step>
+  
+  <Step title="Scan the product barcode">
+    1. Tap the **QR code scanner icon** next to the Barcode field
+    2. Point your camera at the product's barcode
+    3. The barcode value will automatically populate when scanned
+    4. The camera will vibrate to confirm a successful scan
+  </Step>
+  
+  <Step title="Enter product details">
+    Fill in the remaining fields:
+    - **Product Name**: e.g., "Basmati Rice"
+    - **Price**: e.g., "450.00" (without currency symbol)
+  </Step>
+  
+  <Step title="Save the product">
+    Tap **Add Product** at the bottom of the screen.
+  </Step>
+</Steps>
+
+<Note>
+The barcode scanner uses the `mobile_scanner` package and automatically detects various barcode formats including EAN-13, UPC-A, Code 128, and QR codes.
+</Note>
+
+### Method 2: Manual Entry Without Scanner
+
+If you don't have the physical barcode:
+
+<Steps>
+  <Step title="Enter barcode manually">
+    Type the barcode number directly into the Barcode field instead of scanning.
+  </Step>
+  
+  <Step title="Complete other fields">
+    Enter the product name and price as normal.
+  </Step>
+  
+  <Step title="Save">
+    Tap **Add Product**.
+  </Step>
+</Steps>
+
+### Add Product Implementation
+
+Here's how products are created (`lib/features/product/presentation/pages/add_product_page.dart:35`):
+
+```dart
+void _submit() {
+  if (_formKey.currentState!.validate()) {
+    _formKey.currentState!.save();
+
+    // Check for duplicate barcodes
+    final productState = context.read<ProductBloc>().state;
+    final existingProduct =
+        productState.products.where((p) => p.barcode == _barcode).firstOrNull;
+
+    if (existingProduct != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Product with barcode "$_barcode" already exists!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final product = Product(
+      id: const Uuid().v4(),
+      name: _name,
+      barcode: _barcode,
+      price: _price,
+    );
+
+    context.read<ProductBloc>().add(AddProduct(product));
+    context.pop();
+  }
+}
+```
+
+<Warning>
+Duplicate barcodes are not allowed. If you try to add a product with an existing barcode, you'll see an error message.
+</Warning>
+
+## Scanning Products During Entry
+
+The barcode scanner integration works as follows (`lib/features/product/presentation/pages/add_product_page.dart:26`):
+
+```dart
+void _scanBarcode() async {
+  final result = await context.push<String>('/scanner');
+  if (result != null && result.isNotEmpty) {
+    setState(() {
+      _barcode = result;
+    });
+  }
+}
+```
+
+The scanner page (`lib/features/billing/presentation/pages/scanner_page.dart:26`) captures barcodes:
+
+```dart
+void _onDetect(BarcodeCapture capture) async {
+  if (_isScanned) return;
+  final List<Barcode> barcodes = capture.barcodes;
+
+  for (final barcode in barcodes) {
+    if (barcode.rawValue != null) {
+      _isScanned = true;
+      // Vibrate for feedback
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator == true) {
+        Vibration.vibrate();
+      }
+
+      if (mounted) {
+        context.pop(barcode.rawValue);
+      }
+      break;
+    }
+  }
+}
+```
+
+<Tip>
+The scanner provides haptic feedback (vibration) when a barcode is successfully detected, giving immediate confirmation to the user.
+</Tip>
+
+## Searching and Filtering Products
+
+The Product List page includes a powerful search feature:
+
+<Steps>
+  <Step title="Use the search bar">
+    At the top of the Product List, type in the search field to filter products.
+  </Step>
+  
+  <Step title="Search by name or barcode">
+    The search matches both product names and barcode numbers (case-insensitive).
+  </Step>
+  
+  <Step title="Scan to search">
+    Tap the **QR scanner icon** next to the search bar to scan a barcode and instantly find that product.
+  </Step>
+</Steps>
+
+### Search Implementation
+
+Filtering logic (`lib/features/product/presentation/pages/product_list_page.dart:150`):
+
+```dart
+final filteredProducts = state.products
+    .where((product) =>
+        product.name.toLowerCase().contains(_searchQuery) ||
+        product.barcode.toLowerCase().contains(_searchQuery))
+    .toList();
+```
+
+### Scan-to-Search Feature
+
+Quickly locate products by scanning (`lib/features/product/presentation/pages/product_list_page.dart:36`):
+
+```dart
+void _scanQR(List<Product> products) async {
+  final barcode = await context.push<String>('/scanner');
+  if (barcode != null && barcode.isNotEmpty) {
+    final matchedProduct =
+        products.where((p) => p.barcode == barcode).firstOrNull;
+    if (matchedProduct != null) {
+      _searchController.text = matchedProduct.name;
+    } else {
+      _searchController.text = barcode;
+    }
+  }
+}
+```
+
+## Editing Products
+
+<Steps>
+  <Step title="Locate the product">
+    Use search or scroll to find the product you want to edit.
+  </Step>
+  
+  <Step title="Tap Edit icon">
+    Tap the blue **pencil icon** on the right side of the product card.
+  </Step>
+  
+  <Step title="Modify details">
+    Update the product name, barcode, or price as needed.
+  </Step>
+  
+  <Step title="Save changes">
+    Tap **Update Product** at the bottom.
+  </Step>
+</Steps>
+
+<Info>
+Editing a product updates it across all future transactions. Historical receipts are not affected.
+</Info>
+
+## Deleting Products
+
+<Steps>
+  <Step title="Find the product">
+    Navigate to the product you want to remove.
+  </Step>
+  
+  <Step title="Tap Delete icon">
+    Tap the red **trash icon** on the right side of the product card.
+  </Step>
+  
+  <Step title="Confirm deletion">
+    A dialog will ask: "Are you sure you want to delete [Product Name]?"
+    - Tap **Delete** to confirm
+    - Tap **Cancel** to abort
+  </Step>
+</Steps>
+
+### Delete Confirmation Dialog
+
+Implementation (`lib/features/product/presentation/pages/product_list_page.dart:262`):
+
+```dart
+void _confirmDelete(BuildContext context, Product product) {
+  showDialog(
+    context: context,
+    builder: (innerContext) {
+      return AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Are you sure you want to delete ${product.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(innerContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<ProductBloc>().add(DeleteProduct(product.id));
+              Navigator.pop(innerContext);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      );
+    },
+  );
+}
+```
+
+<Warning>
+Deleting a product is permanent and cannot be undone. The product will be removed from your inventory immediately.
+</Warning>
+
+## Product Data Structure
+
+Products are stored with the following fields:
+
+```dart
+class Product {
+  final String id;        // UUID auto-generated
+  final String name;      // Product display name
+  final String barcode;   // Unique barcode identifier
+  final double price;     // Price in local currency
+}
+```
+
+### Validation Rules
+
+- **Barcode**: Required, must be unique
+- **Name**: Required, supports text capitalization
+- **Price**: Required, must be a valid decimal number (e.g., 99.99)
+
+Validation is handled by `AppValidators` in `lib/core/utils/app_validators.dart`:
+
+```dart
+// Price validation
+static String? price(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Please enter a price';
+  }
+  if (double.tryParse(value) == null) {
+    return 'Please enter a valid number';
+  }
+  return null;
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use consistent naming conventions">
+    - Keep product names clear and descriptive
+    - Use title case (e.g., "Basmati Rice" not "basmati rice")
+    - Include brand names if relevant (e.g., "Tata Salt 1kg")
+  </Accordion>
+
+  <Accordion title="Verify barcodes before saving">
+    - Test scan the barcode twice to ensure accuracy
+    - For manual entry, double-check the numbers
+    - Use the search feature to confirm no duplicates exist
+  </Accordion>
+
+  <Accordion title="Regular inventory audits">
+    - Periodically review products for outdated items
+    - Remove discontinued products
+    - Update prices as needed
+  </Accordion>
+
+  <Accordion title="Test with actual checkout">
+    - After adding new products, test them in a checkout flow
+    - Verify prices print correctly on receipts
+    - Ensure barcodes scan properly from the home screen
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### "Product with barcode already exists"
+
+**Cause:** You're trying to add a product with a barcode that's already in the system.
+
+**Solution:** 
+- Search for the existing product and edit it instead
+- If it's a different product variant, use a different barcode or manually append a suffix
+
+### Barcode scanner not working
+
+**Solutions:**
+1. Grant camera permissions: Settings → Apps → Billing App → Permissions → Camera
+2. Ensure good lighting on the barcode
+3. Hold phone steady and align barcode within the green frame
+4. Try entering the barcode manually as a fallback
+
+### Price not saving correctly
+
+**Cause:** Invalid decimal format.
+
+**Solution:**
+- Use only numbers and one decimal point (e.g., 99.50)
+- Don't include currency symbols (₹, $, etc.)
+- Avoid commas or spaces
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Process Checkout" icon="cash-register" href="/guides/process-checkout">
+    Use products in billing workflow
+  </Card>
+  <Card title="Customize Receipts" icon="receipt" href="/guides/customize-receipts">
+    Configure shop info on receipts
+  </Card>
+</CardGroup>

@@ -1,0 +1,513 @@
+---
+title: 'Customize Receipts'
+description: 'Configure shop details, customize receipt format and footer'
+icon: 'receipt'
+---
+
+This guide covers customizing receipt appearance and content by configuring your shop details in the Flutter Billing App.
+
+## Overview
+
+Receipts are generated using ESC/POS thermal printer commands and include:
+- Shop name (header)
+- Address and contact information
+- Transaction items with prices
+- Total amount
+- Custom footer message
+- UPI payment QR code (on checkout screen)
+
+All these elements are configurable through the Shop Details page.
+
+## Accessing Shop Details
+
+<Steps>
+  <Step title="Open Settings">
+    From the home screen, tap the **Settings** icon (gear) in the top-right corner.
+  </Step>
+  
+  <Step title="Navigate to Shop Details">
+    In the Management section, tap **Shop Details** → "Edit business info & address".
+  </Step>
+</Steps>
+
+## Configuring Shop Information
+
+### General Information
+
+These details appear on both printed receipts and digital checkout screens:
+
+<Steps>
+  <Step title="Shop Name">
+    Enter your business name (e.g., "QuickMart Superstore").
+    - Appears in **large, bold, centered** text at the top of receipts
+    - Also displayed in the settings page profile section
+  </Step>
+  
+  <Step title="Address Line 1">
+    Primary address (e.g., "Samrajpet, Mecheri").
+    - Required field
+    - Printed in normal text below shop name
+  </Step>
+  
+  <Step title="Address Line 2 (Optional)">
+    Secondary address info (e.g., "Salem - 636453").
+    - Optional field
+    - Useful for city, state, and pin code
+  </Step>
+  
+  <Step title="Phone Number">
+    Contact number (e.g., "+91 7010674588").
+    - Required field
+    - Printed below address
+  </Step>
+</Steps>
+
+<Note>
+The shop name also determines the initials shown in the circular avatar on the Settings page. For "Elite Groceries", it displays "EG".
+</Note>
+
+### Payment Information
+
+<Steps>
+  <Step title="UPI ID">
+    Your UPI payment address (e.g., "dineshsowndar@oksbi").
+    - Optional but recommended
+    - Generates a scannable QR code on checkout page
+    - Supports all UPI apps (Google Pay, PhonePe, Paytm, etc.)
+  </Step>
+</Steps>
+
+<Info>
+When UPI ID is configured, customers see a "Scan to Pay" QR code at checkout containing the exact order amount. This eliminates manual amount entry and reduces payment errors.
+</Info>
+
+### Receipt Footer
+
+<Steps>
+  <Step title="Receipt Footer Text">
+    Custom message at the bottom of receipts (e.g., "Thank you, Visit again!!!").
+    - Maximum 60 characters (enforced by form)
+    - Printed in centered text after the total
+    - Great for promotional messages or thank you notes
+  </Step>
+</Steps>
+
+### Saving Your Configuration
+
+<Steps>
+  <Step title="Review all fields">
+    Ensure all required fields are filled and information is accurate.
+  </Step>
+  
+  <Step title="Tap Save Details">
+    Click the blue **Save Details** button at the bottom.
+  </Step>
+  
+  <Step title="Confirmation">
+    A green success message appears: "Shop details saved!"
+    You're automatically returned to the Settings page.
+  </Step>
+</Steps>
+
+## Shop Details Form Implementation
+
+The form uses TextEditingControllers and validation (`lib/features/shop/presentation/pages/shop_details_page.dart:63`):
+
+```dart
+void _saveShop() {
+  if (_formKey.currentState!.validate()) {
+    final shop = Shop(
+      name: _nameController.text,
+      addressLine1: _address1Controller.text,
+      addressLine2: _address2Controller.text,
+      phoneNumber: _phoneController.text,
+      upiId: _upiController.text,
+      footerText: _footerController.text,
+    );
+
+    context.read<ShopBloc>().add(UpdateShopEvent(shop));
+  }
+}
+```
+
+### Shop Data Model
+
+The Shop entity structure (`lib/features/shop/domain/entities/shop.dart`):
+
+```dart
+class Shop extends Equatable {
+  final String name;
+  final String addressLine1;
+  final String addressLine2;
+  final String phoneNumber;
+  final String upiId;
+  final String footerText;
+
+  const Shop({
+    this.name = '',
+    this.addressLine1 = '',
+    this.addressLine2 = '',
+    this.phoneNumber = '',
+    this.upiId = '',
+    this.footerText = '',
+  });
+}
+```
+
+## Receipt Layout
+
+### Printed Receipt Format
+
+Here's how your configured shop details appear on thermal printer receipts:
+
+```
+        QUICKMART SUPERSTORE        <- Shop Name (Large, Bold, Centered)
+         Samrajpet, Mecheri         <- Address Line 1 (Centered)
+           Salem - 636453           <- Address Line 2 (Centered)
+          +91 7010674588            <- Phone Number (Centered)
+        14-03-2026 02:30 PM         <- Auto-generated timestamp
+--------------------------------
+Item            Price   Total       <- Table Header
+--------------------------------
+2x Basmati Rice 450.00  900.00      <- Line items
+1x Tata Salt    20.00   20.00
+--------------------------------
+                   TOTAL: 920.0     <- Grand Total (Right-aligned, Bold)
+
+     Thank you, Visit again!!!      <- Footer Text (Centered)
+```
+
+### Receipt Generation Code
+
+The receipt printing function (`lib/core/utils/printer_helper.dart:106`):
+
+```dart
+Future<void> printReceipt({
+  required String shopName,
+  required String address1,
+  required String address2,
+  required String phone,
+  required List<Map<String, dynamic>> items,
+  required double total,
+  required String footer,
+}) async {
+  if (!_isConnected) return;
+
+  List<int> bytes = [];
+
+  // Init printer
+  bytes += EscPos.init;
+
+  // Shop Name (Center, Bold, Large)
+  bytes += EscPos.alignCenter;
+  bytes += EscPos.boldOn;
+  bytes += EscPos.textLarge;
+  bytes += _textToBytes(shopName);
+  bytes += EscPos.lineFeed;
+
+  // Address & Phone (Normal, Center)
+  bytes += EscPos.textNormal;
+  bytes += EscPos.boldOff;
+  if (address1.isNotEmpty) {
+    bytes += _textToBytes(address1);
+    bytes += EscPos.lineFeed;
+  }
+  if (address2.isNotEmpty) {
+    bytes += _textToBytes(address2);
+    bytes += EscPos.lineFeed;
+  }
+  bytes += _textToBytes(phone);
+  bytes += EscPos.lineFeed;
+
+  // Date and Time
+  String formattedDate =
+      DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now());
+  bytes += _textToBytes(formattedDate);
+  bytes += EscPos.lineFeed;
+
+  // ... items table ...
+
+  // Footer (Center)
+  bytes += EscPos.alignCenter;
+  bytes += _textToBytes(footer);
+  bytes += EscPos.lineFeed;
+
+  await PrintBluetoothThermal.writeBytes(bytes);
+}
+```
+
+<Tip>
+The date and time are automatically added to every receipt using the format "dd-MM-yyyy hh:mm a" (e.g., "14-03-2026 02:30 PM").
+</Tip>
+
+## Checkout Screen UPI QR Code
+
+When UPI ID is configured, the checkout page displays a payment QR code:
+
+### QR Code Content
+
+The QR encodes a UPI payment URL with:
+- `pa`: Payee address (your UPI ID)
+- `pn`: Payee name (shop name)
+- `am`: Amount (order total)
+- `cu`: Currency (INR)
+
+Example: `upi://pay?pa=dineshsowndar@oksbi&pn=QuickMart Superstore&am=920.00&cu=INR`
+
+### Implementation
+
+Checkout page QR generation (`lib/features/billing/presentation/pages/checkout_page.dart:58`):
+
+```dart
+BlocBuilder<ShopBloc, ShopState>(builder: (context, shopState) {
+  String upiId = '';
+  String shopName = 'Shop';
+
+  if (shopState is ShopLoaded) {
+    upiId = shopState.shop.upiId;
+    shopName = shopState.shop.name;
+  }
+
+  return Column(
+    children: [
+      // ... checkout table ...
+      
+      upiId.isNotEmpty
+          ? Column(
+              children: [
+                const Text(
+                  'Scan to Pay',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: 180,
+                  height: 180,
+                  child: PrettyQrView.data(
+                    data:
+                        'upi://pay?pa=$upiId&pn=$shopName&am=${billingState.totalAmount.toStringAsFixed(2)}&cu=INR',
+                  ),
+                ),
+              ],
+            )
+          : const SizedBox.shrink(),
+    ],
+  );
+});
+```
+
+<Warning>
+If you don't configure a UPI ID, the QR code will not appear on the checkout page. The Print Receipt button will still work normally.
+</Warning>
+
+## ESC/POS Command Reference
+
+The app uses standard ESC/POS commands for receipt formatting (`lib/core/utils/printer_helper.dart:5`):
+
+```dart
+class EscPos {
+  static const List<int> init = [0x1B, 0x40];              // Initialize printer
+  static const List<int> alignCenter = [0x1B, 0x61, 0x01]; // Center alignment
+  static const List<int> alignLeft = [0x1B, 0x61, 0x00];   // Left alignment
+  static const List<int> alignRight = [0x1B, 0x61, 0x02];  // Right alignment
+  static const List<int> boldOn = [0x1B, 0x45, 0x01];      // Enable bold
+  static const List<int> boldOff = [0x1B, 0x45, 0x00];     // Disable bold
+  static const List<int> textNormal = [0x1D, 0x21, 0x00];  // Normal text size
+  static const List<int> textLarge = [0x1D, 0x21, 0x11];   // Large text (2x)
+  static const List<int> lineFeed = [0x0A];                // New line
+}
+```
+
+### Text Formatting Capabilities
+
+- **Alignment**: Left, Center, Right
+- **Size**: Normal, Large (2x)
+- **Style**: Normal, Bold
+- **Encoding**: Latin-1 (ASCII-compatible)
+
+<Note>
+These commands are compatible with most 58mm and 80mm ESC/POS thermal printers. Some advanced features like logos or custom fonts may require printer-specific commands.
+</Note>
+
+## Testing Your Configuration
+
+<Steps>
+  <Step title="Save shop details">
+    Configure all fields and tap **Save Details**.
+  </Step>
+  
+  <Step title="Add test items to cart">
+    Scan or add a few products on the home screen.
+  </Step>
+  
+  <Step title="Review checkout">
+    Tap **Review Order** and verify:
+    - Shop name appears correctly
+    - UPI QR code shows (if configured)
+    - Total amount is accurate
+  </Step>
+  
+  <Step title="Print test receipt">
+    Tap **Print Receipt** and check the printout:
+    - Shop name, address, phone number
+    - Items and prices
+    - Total
+    - Footer message
+  </Step>
+</Steps>
+
+<Tip>
+Print a test receipt whenever you update shop details to ensure everything appears correctly on the physical printout.
+</Tip>
+
+## Validation Rules
+
+### Required Fields
+- Shop Name
+- Address Line 1
+- Phone Number
+
+### Optional Fields
+- Address Line 2
+- UPI ID
+- Receipt Footer Text
+
+### Length Limits
+- Footer Text: 60 characters maximum
+- Other fields: No enforced limit (but keep concise for receipt readability)
+
+### Validation Implementation
+
+From `lib/features/shop/presentation/pages/shop_details_page.dart:127`:
+
+```dart
+const InputLabel(text: 'Shop Name'),
+_buildTextField(
+  controller: _nameController,
+  hint: 'e.g. QuickMart Superstore',
+  validator: AppValidators.required('Required'),
+),
+```
+
+```dart
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    const InputLabel(text: 'Receipt Footer Text'),
+    Text('Max 150 chars',
+        style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+  ],
+),
+_buildTextField(
+  controller: _footerController,
+  hint: 'Thank you, Visit again!!!',
+  maxLines: 2,
+  maxLength: 60,
+),
+```
+
+<Warning>
+Required fields must be filled before saving. The form validation prevents saving incomplete configurations.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep shop name concise">
+    - Thermal printers have limited width (32-42 characters per line)
+    - Long names may wrap awkwardly
+    - Use abbreviations if necessary (e.g., "SM Superstore" instead of "Super Mega Superstore")
+  </Accordion>
+
+  <Accordion title="Include complete contact information">
+    - Phone number helps customers reach you for inquiries
+    - Address builds trust and professionalism
+    - Always include area code with phone numbers
+  </Accordion>
+
+  <Accordion title="Configure UPI for digital payments">
+    - Reduces cash handling
+    - Provides automatic payment amount
+    - Works with all major UPI apps in India
+    - Verify UPI ID is correct before saving
+  </Accordion>
+
+  <Accordion title="Use friendly footer messages">
+    - "Thank you for your purchase!"
+    - "Visit again soon!"
+    - "Customer support: [phone]"
+    - Avoid promotional spam or overly long text
+  </Accordion>
+
+  <Accordion title="Test after every change">
+    - Print a test receipt after updating shop details
+    - Verify QR code works with a UPI app
+    - Check for text alignment and readability issues
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Shop details not appearing on receipt
+
+**Cause:** Shop details weren't saved before printing.
+
+**Solution:**
+1. Go to Settings → Shop Details
+2. Fill all required fields
+3. Tap **Save Details**
+4. Return to checkout and print again
+
+### Footer text truncated
+
+**Cause:** Footer exceeds character limit or printer width.
+
+**Solution:**
+1. Edit shop details
+2. Shorten footer to under 60 characters
+3. Use concise wording
+4. Save and test print
+
+### UPI QR code not showing
+
+**Cause:** UPI ID field is empty.
+
+**Solution:**
+1. Open Shop Details
+2. Enter your UPI ID (e.g., "yourname@oksbi")
+3. Save
+4. Navigate to checkout to see QR code
+
+### UPI QR code doesn't work when scanned
+
+**Cause:** Invalid UPI ID format.
+
+**Solution:**
+1. Verify UPI ID format: `username@bankcode`
+2. Common bank codes: `@oksbi`, `@paytm`, `@ybl`, `@axl`
+3. Test your UPI ID with a payment app first
+4. Update and save corrected UPI ID
+
+### Receipt prints with wrong encoding/garbled text
+
+**Cause:** Printer doesn't support Latin-1 encoding or special characters.
+
+**Solution:**
+1. Avoid special characters (©, ™, emojis, accented letters)
+2. Use plain English alphanumeric characters
+3. Stick to basic punctuation (. , ! ?)
+4. Update shop details and retest
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Setup Printer" icon="print" href="/guides/setup-printer">
+    Connect Bluetooth thermal printer
+  </Card>
+  <Card title="Process Checkout" icon="cash-register" href="/guides/process-checkout">
+    Complete billing workflow
+  </Card>
+</CardGroup>

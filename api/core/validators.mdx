@@ -1,0 +1,257 @@
+---
+title: 'AppValidators'
+description: 'Form validation utilities for Flutter Billing App'
+---
+
+## Overview
+
+The `AppValidators` class provides reusable form field validators for common validation scenarios in the billing application. All validators return `null` for valid input and an error message string for invalid input.
+
+**Location:** `lib/core/utils/app_validators.dart`
+
+## Validators
+
+### required()
+
+Creates a validator function that checks for non-empty input.
+
+```dart
+static String? Function(String?) required(String message)
+```
+
+<ParamField path="message" type="String" required>
+  Custom error message to display when validation fails
+</ParamField>
+
+<ResponseField name="return" type="String? Function(String?)">
+  Validator function that returns the provided error message if input is null or empty (after trimming whitespace), otherwise returns null
+</ResponseField>
+
+**Behavior:**
+- Returns error message if value is `null`
+- Returns error message if value is empty string
+- Returns error message if value contains only whitespace
+- Returns `null` if value has actual content
+
+**Usage:**
+
+```dart
+TextFormField(
+  decoration: InputDecoration(labelText: 'Product Name'),
+  validator: AppValidators.required('Product name is required'),
+)
+```
+
+**Example with custom message:**
+
+```dart
+TextFormField(
+  decoration: InputDecoration(labelText: 'Shop Name'),
+  validator: AppValidators.required('Please enter your shop name'),
+)
+```
+
+### price()
+
+Validates numeric price input, ensuring it's a valid non-negative number.
+
+```dart
+static String? price(String? value)
+```
+
+<ParamField path="value" type="String?">
+  The price value to validate (typically from a TextFormField)
+</ParamField>
+
+<ResponseField name="return" type="String?">
+  Error message if validation fails, `null` if valid
+</ResponseField>
+
+**Validation Rules:**
+
+1. **Empty check:** Returns `'Please enter a price'` if value is null or empty
+2. **Numeric check:** Returns `'Please enter a valid number'` if value cannot be parsed as a double
+3. **Non-negative check:** Returns `'Price cannot be negative'` if parsed number is less than 0
+4. **Success:** Returns `null` if all checks pass
+
+**Usage:**
+
+```dart
+TextFormField(
+  decoration: InputDecoration(
+    labelText: 'Price',
+    prefixText: '\$',
+  ),
+  keyboardType: TextInputType.numberWithOptions(decimal: true),
+  validator: AppValidators.price,
+)
+```
+
+**Valid Examples:**
+- `"10"` → valid (whole number)
+- `"10.50"` → valid (decimal)
+- `"0"` → valid (zero is allowed)
+- `"0.01"` → valid (small decimal)
+
+**Invalid Examples:**
+- `""` → "Please enter a price"
+- `"abc"` → "Please enter a valid number"
+- `"-10"` → "Price cannot be negative"
+- `"10.5.5"` → "Please enter a valid number"
+
+## Complete Form Example
+
+```dart
+import 'package:flutter/material.dart';
+import 'core/utils/app_validators.dart';
+
+class ProductForm extends StatefulWidget {
+  @override
+  _ProductFormState createState() => _ProductFormState();
+}
+
+class _ProductFormState extends State<ProductForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      // All validations passed
+      final name = _nameController.text;
+      final price = double.parse(_priceController.text);
+      final description = _descriptionController.text;
+      
+      // Process the form data
+      print('Product: $name, Price: $price');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: 'Product Name',
+              hintText: 'Enter product name',
+            ),
+            validator: AppValidators.required('Product name is required'),
+          ),
+          SizedBox(height: 16),
+          TextFormField(
+            controller: _priceController,
+            decoration: InputDecoration(
+              labelText: 'Price',
+              prefixText: '\$',
+            ),
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            validator: AppValidators.price,
+          ),
+          SizedBox(height: 16),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: InputDecoration(
+              labelText: 'Description',
+              hintText: 'Optional description',
+            ),
+            maxLines: 3,
+            // No validator - this field is optional
+          ),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _submitForm,
+            child: Text('Add Product'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+}
+```
+
+## Combining Validators
+
+You can create custom validators that combine multiple validation rules:
+
+```dart
+class CustomValidators {
+  // Combine required and price validation
+  static String? requiredPrice(String? value) {
+    // First check if required
+    final requiredError = AppValidators.required('Price is required')(value);
+    if (requiredError != null) return requiredError;
+    
+    // Then validate as price
+    return AppValidators.price(value);
+  }
+  
+  // Validate with minimum value
+  static String? minimumPrice(double minimum) {
+    return (String? value) {
+      final priceError = AppValidators.price(value);
+      if (priceError != null) return priceError;
+      
+      final price = double.parse(value!);
+      if (price < minimum) {
+        return 'Price must be at least \$$minimum';
+      }
+      return null;
+    };
+  }
+}
+
+// Usage
+TextFormField(
+  validator: CustomValidators.minimumPrice(0.01),
+)
+```
+
+## Best Practices
+
+1. **Use appropriate keyboard types:** Pair validators with matching `keyboardType` for better UX
+   ```dart
+   keyboardType: TextInputType.numberWithOptions(decimal: true)
+   ```
+
+2. **Clear error messages:** Use the `required()` method with descriptive messages
+   ```dart
+   AppValidators.required('Customer name is required')
+   ```
+
+3. **Validate on submission:** Trigger validation when the user submits the form
+   ```dart
+   _formKey.currentState!.validate()
+   ```
+
+4. **Auto-validate mode:** Enable auto-validation after first submission attempt
+   ```dart
+   Form(
+     autovalidateMode: AutovalidateMode.onUserInteraction,
+     // ...
+   )
+   ```
+
+5. **Trim whitespace:** The validators already handle whitespace trimming for required fields
+
+## Type Signature
+
+Both validators follow Flutter's standard `FormFieldValidator<String>` signature:
+
+```dart
+typedef FormFieldValidator<T> = String? Function(T? value);
+```
+
+This makes them compatible with all Flutter form fields that accept string input.

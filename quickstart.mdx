@@ -1,80 +1,274 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get the Flutter Billing App running and complete your first checkout in under 10 minutes
 ---
 
-## Get started in three steps
+## Get Started in Minutes
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will take you from zero to your first successful checkout flow. Follow these steps to get the app running on your device or emulator.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+**Estimated time**: 5-10 minutes
 </Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Flutter SDK** version 3.1.0 or higher installed ([Download Flutter](https://flutter.dev/docs/get-started/install))
+- **Android Studio** or **Xcode** for running emulators
+- A code editor (VS Code, Android Studio, or IntelliJ IDEA recommended)
+- Basic familiarity with Flutter development
+
+<Tip>
+For testing hardware features like barcode scanning and Bluetooth printing, use a physical Android or iOS device.
+</Tip>
+
+## Installation
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the project repository and navigate to the project directory:
+
+    ```bash
+    git clone <repository_url>
+    cd billing_app
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Fetch all required Flutter packages:
+
+    ```bash
+    flutter pub get
+    ```
+
+    This will download all dependencies defined in `pubspec.yaml`, including:
+    - `flutter_bloc` for state management
+    - `hive` and `hive_flutter` for local database
+    - `mobile_scanner` for barcode scanning
+    - `print_bluetooth_thermal` for receipt printing
+  </Step>
+
+  <Step title="Run code generation">
+    Generate required files for Hive adapters and JSON serialization:
+
+    ```bash
+    dart run build_runner build --delete-conflicting-outputs
+    ```
+
+    <Info>
+    This command generates `*.g.dart` files for Hive type adapters (`ProductModelAdapter`, `ShopModelAdapter`) and JSON serialization classes.
+    </Info>
+  </Step>
+
+  <Step title="Run the application">
+    Launch the app on your connected device or emulator:
+
+    ```bash
+    flutter run
+    ```
+
+    The app will compile and launch, displaying the main home screen with the barcode scanner interface.
+  </Step>
+</Steps>
+
+## Your First Checkout Flow
+
+Once the app is running, follow these steps to complete your first checkout:
+
+<Steps>
+  <Step title="Add products to inventory">
+    Before scanning, you need products in your local database.
+
+    1. Tap the **Settings** icon (gear icon) in the top-right of the scanner screen
+    2. Navigate to **Products** from the settings menu
+    3. Tap the **Add Product** button
+    4. Enter product details:
+       - **Name**: "Sample Product"
+       - **Barcode**: "123456789" (or scan a real barcode)
+       - **Price**: 99.99
+       - **Stock**: 10
+    5. Save the product
+
+    <CodeGroup>
+    ```dart Product Entity Structure
+    class Product extends Equatable {
+      final String id;
+      final String name;
+      final String barcode;
+      final double price;
+      final int stock;
+
+      const Product({
+        required this.id,
+        required this.name,
+        required this.barcode,
+        required this.price,
+        this.stock = 0,
+      });
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Configure shop details">
+    Set up your shop information for receipt printing:
+
+    1. From Settings, navigate to **Shop Details**
+    2. Enter your shop information:
+       - Shop Name
+       - Address
+       - Phone Number
+       - Tax/GST Number (optional)
+    3. Save the configuration
+
+    <Note>
+    Shop details will appear on all printed receipts from the thermal printer.
+    </Note>
+  </Step>
+
+  <Step title="Scan products into cart">
+    Return to the home screen and start scanning:
+
+    1. Point your device camera at a product barcode
+    2. The app will automatically detect and scan the barcode
+    3. The product is added to the cart with a vibration feedback
+    4. You'll see the item appear in the "Scanned Items" list at the bottom
+    5. The total price updates automatically
+
+    <Tip>
+    The app has a 2-second cooldown to prevent duplicate scans of the same barcode.
+    </Tip>
+
+    **Key Implementation Detail** (`lib/features/billing/presentation/pages/home_page.dart:62`):
+
+    ```dart Barcode Scanning Handler
+    void _onDetect(BarcodeCapture capture) async {
+      final List<Barcode> barcodes = capture.barcodes;
+      final now = DateTime.now();
+
+      for (final barcode in barcodes) {
+        if (barcode.rawValue != null) {
+          final rawValue = barcode.rawValue!;
+
+          // Cooldown logic: 2 seconds per identical barcode
+          if (_lastScanTimes.containsKey(rawValue)) {
+            final lastScan = _lastScanTimes[rawValue]!;
+            if (now.difference(lastScan).inSeconds < 2) {
+              continue;
+            }
+          }
+
+          _lastScanTimes[rawValue] = now;
+
+          // Vibrate on successful scan
+          final hasVibrator = await Vibration.hasVibrator();
+          if (hasVibrator == true) {
+            Vibration.vibrate();
+          }
+
+          if (mounted) {
+            context.read<BillingBloc>().add(ScanBarcodeEvent(rawValue));
+          }
+          break;
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Adjust quantities">
+    Manage item quantities in your cart:
+
+    - Tap **+** to increase quantity
+    - Tap **-** to decrease quantity (removes item if quantity becomes 0)
+    - View the updated total price in real-time
+  </Step>
+
+  <Step title="Complete checkout">
+    Finalize the order:
+
+    1. Tap the **Review Order** button at the bottom
+    2. Review all items and the final total
+    3. Confirm the checkout
+    4. If a Bluetooth printer is connected, the receipt prints automatically
+
+    <Info>
+    All transaction data is stored locally in the Hive database for future reference.
+    </Info>
+  </Step>
+</Steps>
+
+## Understanding the App Structure
+
+The app initializes core services in `lib/main.dart:13-17`:
+
+```dart Application Initialization
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveDatabase.init();        // Initialize Hive local database
+  await di.init();                   // Setup dependency injection
+  runApp(const MyApp());
+}
+```
+
+### Hive Database Initialization
+
+The local database is configured in `lib/core/data/hive_database.dart:10-21`:
+
+```dart Hive Setup
+static Future<void> init() async {
+  await Hive.initFlutter();
+
+  // Register Adapters
+  Hive.registerAdapter(ProductModelAdapter());
+  Hive.registerAdapter(ShopModelAdapter());
+
+  // Open Boxes
+  await Hive.openBox<ProductModel>(productBoxName);
+  await Hive.openBox<ShopModel>(shopBoxName);
+  await Hive.openBox(settingsBoxName);
+}
+```
+
+<Warning>
+Always run `dart run build_runner build` after modifying Hive model classes to regenerate adapters.
+</Warning>
+
+## Testing Without Physical Hardware
+
+If you don't have a barcode scanner or thermal printer:
+
+1. **Manual Product Entry**: Use the Product Management screen to add items with custom barcodes
+2. **Simulated Scanning**: Type barcode numbers manually in a future text input mode (feature can be extended)
+3. **Print Preview**: Review receipt content on-screen before sending to printer
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Detailed setup instructions and troubleshooting
+  </Card>
+  <Card title="Features Overview" icon="list" href="/features">
+    Explore all app capabilities in depth
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the Clean Architecture design
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/product">
+    Complete API and code reference
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Tip>
+For detailed troubleshooting steps, see the [Installation Guide](/installation#troubleshooting).
+</Tip>
+
+**Common Issues:**
+
+- **Build runner errors**: Ensure `build_runner`, `hive_generator`, and `json_serializable` are in `dev_dependencies`
+- **Camera permissions**: Grant camera permissions on physical devices for barcode scanning
+- **Bluetooth errors**: Ensure Bluetooth is enabled and the printer is paired before connecting

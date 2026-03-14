@@ -1,0 +1,106 @@
+---
+title: Introduction
+description: Welcome to the Flutter Billing App - a feature-rich, offline-first POS solution for retail businesses
+---
+
+## Overview
+
+The Flutter Billing App is a high-performance, **offline-first** Point of Sale (POS) and billing application built with Flutter. Designed for seamless retail checkout operations, it features barcode scanning, thermal Bluetooth printing, and robust local data persistence—all without requiring an active internet connection.
+
+<CardGroup cols={2}>
+  <Card title="Get Started" icon="rocket" href="/quickstart">
+    Complete your first checkout in under 5 minutes
+  </Card>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Set up the development environment step-by-step
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Learn about the Clean Architecture design
+  </Card>
+  <Card title="Features" icon="list-check" href="/features">
+    Explore all capabilities in detail
+  </Card>
+</CardGroup>
+
+## Key Capabilities
+
+### Product Management System
+Complete CRUD operations for inventory items with integrated barcode/QR code support. Add, edit, and delete products from your local catalog with ease.
+
+### Smart Checkout System
+Rapid cart building via camera-based barcode scanning or manual entry. Real-time order calculation with automatic total computation.
+
+### Bluetooth Thermal Printing
+Direct integration with thermal printers using the `print_bluetooth_thermal` package. Instantly output physical receipts with customizable shop details.
+
+### Shop Settings & Customization
+Centrally managed shop configuration that dynamically appears on printed receipts—including shop name, address, contact details, and tax information.
+
+### Offline-First Architecture
+Powered by Hive for lightning-fast NoSQL local data storage. No active internet connectivity required for any core operations.
+
+## Who Should Use This?
+
+The Flutter Billing App is ideal for:
+
+<CardGroup cols={2}>
+  <Card title="Retail Shops" icon="store">
+    Small to medium-sized retail stores needing a reliable POS system
+  </Card>
+  <Card title="Market Stalls" icon="cart-shopping">
+    Vendors at exhibitions or markets with poor network connectivity
+  </Card>
+  <Card title="Small Businesses" icon="shop">
+    Businesses requiring offline billing with instant receipt printing
+  </Card>
+  <Card title="Mobile Checkout" icon="mobile">
+    On-the-go checkout solutions using mobile devices
+  </Card>
+</CardGroup>
+
+## Technical Highlights
+
+<Info>
+Built using **Clean Architecture** and **Feature-Driven Design** principles, ensuring scalability, separation of concerns, and robust testability.
+</Info>
+
+**Core Technologies:**
+- **Framework**: Flutter (SDK >=3.1.0)
+- **State Management**: `flutter_bloc` with `equatable`
+- **Dependency Injection**: `get_it`
+- **Navigation**: `go_router`
+- **Local Database**: `hive` & `hive_flutter`
+- **Functional Programming**: `fpdart` for Either-based error handling
+- **Hardware Integration**: `mobile_scanner`, `print_bluetooth_thermal`
+
+## Use Cases in Action
+
+### Rapid Billing Entry
+A cashier launches the app, navigates to the home page, and uses the device camera to instantly scan product barcodes. Products are automatically added to the cart, totals are calculated, and a receipt is finalized within seconds.
+
+### Physical Receipt Generation
+After checkout confirmation, the app triggers a connected Bluetooth thermal POS printer to instantly print an itemized paper receipt complete with the shop's header information.
+
+### Inventory Management
+A store manager opens the Product feature to add new stock to the local database, scanning the product barcode to bind the SKU for future lightning-fast checkouts.
+
+### No-Connection Operation
+The business operates at a trade show or outdoor market with unreliable networking. The app functions entirely via its embedded Hive database and Bluetooth printer—completely undisturbed by network connectivity issues.
+
+## Next Steps
+
+<Steps>
+  <Step title="Quick Start">
+    Follow the [Quickstart Guide](/quickstart) to get your first checkout flow running in minutes
+  </Step>
+  <Step title="Installation">
+    Review the detailed [Installation Instructions](/installation) for setting up the development environment
+  </Step>
+  <Step title="Explore Features">
+    Dive into the [Features Documentation](/features) to understand all capabilities
+  </Step>
+</Steps>
+
+<Note>
+This is a fully offline application. No backend server or API integration is required for core functionality.
+</Note>

@@ -1,0 +1,489 @@
+---
+title: 'Process Checkout'
+description: 'Complete checkout workflow from scanning items to printing receipts'
+icon: 'cash-register'
+---
+
+This guide walks through the complete checkout process in the Flutter Billing App, from scanning items to printing receipts.
+
+## Overview
+
+The checkout workflow consists of three main stages:
+
+1. **Scanning Items** - Add products to cart via barcode scanning
+2. **Review Order** - Verify cart contents and total
+3. **Print Receipt** - Generate and print customer receipt
+
+## Stage 1: Scanning Items
+
+### Starting a New Order
+
+The home page features a live barcode scanner occupying the top 40% of the screen:
+
+<Steps>
+  <Step title="Enable camera">
+    When you open the app, the camera starts automatically. If disabled, tap the **camera icon** to turn it on.
+  </Step>
+  
+  <Step title="Position barcode">
+    Point your phone's camera at a product barcode. Align it within the green-bordered scanning frame.
+  </Step>
+  
+  <Step title="Automatic detection">
+    When detected:
+    - Phone vibrates for haptic feedback
+    - Product is instantly added to cart below
+    - Item appears in the "Scanned Items" list
+  </Step>
+</Steps>
+
+<Note>
+The scanner uses a 2-second cooldown to prevent duplicate scans of the same barcode. This ensures you don't accidentally add the same item multiple times in quick succession.
+</Note>
+
+### Barcode Detection Logic
+
+Implementation from `lib/features/billing/presentation/pages/home_page.dart:37`:
+
+```dart
+void _onDetect(BarcodeCapture capture) async {
+  final List<Barcode> barcodes = capture.barcodes;
+  final now = DateTime.now();
+
+  for (final barcode in barcodes) {
+    if (barcode.rawValue != null) {
+      final rawValue = barcode.rawValue!;
+
+      // Cooldown logic: 2 seconds per identical barcode
+      if (_lastScanTimes.containsKey(rawValue)) {
+        final lastScan = _lastScanTimes[rawValue]!;
+        if (now.difference(lastScan).inSeconds < 2) {
+          continue;
+        }
+      }
+
+      _lastScanTimes[rawValue] = now;
+
+      // Vibrate for feedback
+      final hasVibrator = await Vibration.hasVibrator();
+      if (hasVibrator == true) {
+        Vibration.vibrate();
+      }
+
+      if (mounted) {
+        context.read<BillingBloc>().add(ScanBarcodeEvent(rawValue));
+      }
+      break;
+    }
+  }
+}
+```
+
+### Adding Products to Cart
+
+When a barcode is scanned, the billing logic retrieves and adds the product (`lib/features/billing/presentation/bloc/billing_bloc.dart:25`):
+
+```dart
+Future<void> _onScanBarcode(
+    ScanBarcodeEvent event, Emitter<BillingState> emit) async {
+  final result = await getProductByBarcodeUseCase(event.barcode);
+  result.fold(
+    (failure) =>
+        emit(state.copyWith(error: 'Product not found: ${event.barcode}')),
+    (product) {
+      add(AddProductToCartEvent(product));
+    },
+  );
+}
+```
+
+<Warning>
+If a scanned barcode doesn't match any product in your inventory, you'll see a red error message: "Product not found: [barcode]". Add the product to inventory first before scanning.
+</Warning>
+
+### Managing Cart Items
+
+The scanned items list appears in the bottom panel:
+
+<Steps>
+  <Step title="View cart items">
+    Each product card shows:
+    - Product name
+    - Unit price (₹)
+    - Quantity controls (+/-)
+  </Step>
+  
+  <Step title="Adjust quantities">
+    - Tap **+** to increase quantity
+    - Tap **-** to decrease quantity
+    - Reducing to 0 removes the item from cart
+  </Step>
+  
+  <Step title="Monitor total">
+    The running total updates automatically in the top-right corner of the bottom panel.
+  </Step>
+</Steps>
+
+### Quantity Update Implementation
+
+Quantity adjustment logic (`lib/features/billing/presentation/bloc/billing_bloc.dart:65`):
+
+```dart
+void _onUpdateQuantity(
+    UpdateQuantityEvent event, Emitter<BillingState> emit) {
+  if (event.quantity <= 0) {
+    add(RemoveProductFromCartEvent(event.productId));
+    return;
+  }
+
+  final index = state.cartItems
+      .indexWhere((item) => item.product.id == event.productId);
+  if (index >= 0) {
+    final items = List<CartItem>.from(state.cartItems);
+    items[index] = items[index].copyWith(quantity: event.quantity);
+    emit(state.copyWith(cartItems: items));
+  }
+}
+```
+
+<Info>
+If you scan the same product multiple times, the app automatically increments the quantity instead of creating duplicate cart entries.
+</Info>
+
+## Stage 2: Review Order
+
+### Navigating to Checkout
+
+<Steps>
+  <Step title="Review cart summary">
+    Check the bottom panel shows:
+    - **Scanned Items** header with total item count
+    - **TOTAL PRICE** in the top-right
+    - List of all cart items
+  </Step>
+  
+  <Step title="Tap Review Order">
+    The blue **Review Order** button at the very bottom is only enabled when cart has items.
+  </Step>
+  
+  <Step title="Checkout page opens">
+    You're taken to the Checkout page showing:
+    - Detailed product table (Name, Price, Total)
+    - Grand total
+    - UPI QR code (if configured)
+  </Step>
+</Steps>
+
+### Checkout Page UI
+
+The checkout page (`lib/features/billing/presentation/pages/checkout_page.dart`) displays:
+
+#### Product Table
+
+| Product Name | Price | Total |
+|--------------|-------|-------|
+| 2 x Basmati Rice | ₹450.00 | ₹900.00 |
+| 1 x Tata Salt | ₹20.00 | ₹20.00 |
+
+#### Payment Section
+
+If you configured a UPI ID in shop details:
+- **"Scan to Pay"** heading
+- QR code containing: `upi://pay?pa=[UPI_ID]&pn=[SHOP_NAME]&am=[AMOUNT]&cu=INR`
+- Customers can scan with Google Pay, PhonePe, Paytm, etc.
+
+#### Grand Total
+
+Displayed prominently at the bottom:
+
+```
+GRAND TOTAL          ₹920.00
+```
+
+<Tip>
+The UPI QR code is automatically generated with the exact order total, making digital payments seamless for customers.
+</Tip>
+
+### UPI QR Code Generation
+
+Implementation (`lib/features/billing/presentation/pages/checkout_page.dart:186`):
+
+```dart
+SizedBox(
+  width: 180,
+  height: 180,
+  child: PrettyQrView.data(
+    data:
+        'upi://pay?pa=$upiId&pn=$shopName&am=${billingState.totalAmount.toStringAsFixed(2)}&cu=INR',
+  ),
+)
+```
+
+## Stage 3: Print Receipt
+
+### Printing the Receipt
+
+<Steps>
+  <Step title="Ensure printer connected">
+    Verify your Bluetooth printer is paired and connected (see [Setup Printer](/guides/setup-printer) guide).
+  </Step>
+  
+  <Step title="Tap Print Receipt">
+    On the checkout page, tap the blue **Print Receipt** button at the bottom.
+  </Step>
+  
+  <Step title="Wait for printing">
+    - A loading indicator appears
+    - Receipt prints on thermal printer
+    - Success message: "Printed successfully" (green)
+  </Step>
+</Steps>
+
+### Auto-Reconnection
+
+If the printer connection was lost, the app attempts automatic reconnection (`lib/features/billing/presentation/bloc/billing_bloc.dart:85`):
+
+```dart
+Future<void> _onPrintReceipt(
+    PrintReceiptEvent event, Emitter<BillingState> emit) async {
+  final printerHelper = PrinterHelper();
+
+  if (!printerHelper.isConnected) {
+    final savedMac = HiveDatabase.settingsBox.get('printer_mac');
+    if (savedMac != null) {
+      final connected = await printerHelper.connect(savedMac);
+      if (!connected) {
+        emit(state.copyWith(
+            error: 'Failed to auto-connect to printer!', clearError: false));
+        return;
+      }
+    } else {
+      emit(state.copyWith(
+          error: 'Printer not connected & no saved printer found!',
+          clearError: false));
+      return;
+    }
+  }
+
+  // Continue with printing...
+}
+```
+
+### Receipt Format
+
+The printed receipt includes (`lib/core/utils/printer_helper.dart:106`):
+
+1. **Header** (centered, bold, large)
+   - Shop name
+
+2. **Shop Details** (centered)
+   - Address line 1
+   - Address line 2 (if provided)
+   - Phone number
+   - Date and time (e.g., "14-03-2026 02:30 PM")
+
+3. **Items Table** (left-aligned)
+   ```
+   Item            Price   Total
+   --------------------------------
+   2x Basmati Rice 450.00  900.00
+   1x Tata Salt    20.00   20.00
+   ```
+
+4. **Total** (right-aligned, bold)
+   ```
+   TOTAL: 920.0
+   ```
+
+5. **Footer** (centered)
+   - Custom footer text (e.g., "Thank you, Visit again!!!")
+
+### ESC/POS Print Commands
+
+Receipt generation uses ESC/POS commands for formatting (`lib/core/utils/printer_helper.dart:106`):
+
+```dart
+Future<void> printReceipt({
+  required String shopName,
+  required String address1,
+  required String address2,
+  required String phone,
+  required List<Map<String, dynamic>> items,
+  required double total,
+  required String footer,
+}) async {
+  if (!_isConnected) return;
+
+  List<int> bytes = [];
+
+  // Init
+  bytes += EscPos.init;
+
+  // Shop Name (Center, Bold, Large)
+  bytes += EscPos.alignCenter;
+  bytes += EscPos.boldOn;
+  bytes += EscPos.textLarge;
+  bytes += _textToBytes(shopName);
+  bytes += EscPos.lineFeed;
+
+  // ... (address, phone, items, total, footer)
+
+  await PrintBluetoothThermal.writeBytes(bytes);
+}
+```
+
+<Note>
+ESC/POS commands control text alignment, size, and styling on thermal printers. The app uses standard commands compatible with most 58mm and 80mm printers.
+</Note>
+
+## Completing the Transaction
+
+### After Printing
+
+<Steps>
+  <Step title="Return to home">
+    Tap the **back arrow** in the top-left corner of the checkout page.
+  </Step>
+  
+  <Step title="Cart is cleared">
+    The cart automatically resets to empty when you leave checkout.
+  </Step>
+  
+  <Step title="Ready for next customer">
+    The scanner is active and ready to scan the next order.
+  </Step>
+</Steps>
+
+### Cart Clear Logic
+
+Implementation (`lib/features/billing/presentation/pages/checkout_page.dart:22`):
+
+```dart
+PopScope(
+  canPop: false,
+  onPopInvokedWithResult: (bool didPop, dynamic result) {
+    if (didPop) return;
+    context.read<BillingBloc>().add(ClearCartEvent());
+    context.go('/');
+  },
+  child: Scaffold(...)
+)
+```
+
+<Warning>
+Navigating away from checkout clears the cart. If you need to reprint a receipt, you'll have to rescan all items.
+</Warning>
+
+## Camera Controls
+
+The home screen scanner includes several controls:
+
+### Available Controls
+
+- **Settings** (gear icon) - Access app settings and printer configuration
+- **Flashlight** (flash icon) - Toggle flash for scanning in low light
+- **Camera On/Off** (video icon) - Disable camera to save battery
+
+### Turning Camera Off
+
+<Steps>
+  <Step title="Tap camera icon">
+    In the top-right corner of the scanner view.
+  </Step>
+  
+  <Step title="Scanner pauses">
+    Camera feed stops and shows "Camera is turned off" message.
+  </Step>
+  
+  <Step title="Re-enable when needed">
+    Tap **Turn on Camera** button or the camera icon again.
+  </Step>
+</Steps>
+
+<Tip>
+Turn off the camera when manually entering data or during breaks to conserve battery and reduce heating.
+</Tip>
+
+## Troubleshooting
+
+### "Product not found" error
+
+**Cause:** Scanned barcode doesn't exist in inventory.
+
+**Solution:**
+1. Go to Settings → Products
+2. Add the product with the correct barcode
+3. Return to home and rescan
+
+### Printer not responding
+
+**Solutions:**
+1. Check printer is powered on and has paper
+2. Go to Settings → Hardware → Print Device
+3. Tap **Refresh** to reconnect
+4. If failed, tap Settings gear → re-pair printer → Refresh
+
+### Receipt prints but is blank
+
+**Cause:** Paper roll installed backwards.
+
+**Solution:**
+1. Open printer cover
+2. Flip the paper roll (thermal side should face the print head)
+3. Reprint receipt
+
+### Scanner not detecting barcodes
+
+**Solutions:**
+1. Clean camera lens
+2. Improve lighting conditions
+3. Hold phone steady and ensure barcode is in focus
+4. Try toggling flashlight on
+5. Verify camera permissions are granted
+
+### Cart shows wrong total
+
+**Cause:** Price updates didn't affect current cart.
+
+**Solution:**
+1. Go back to home page (clears cart)
+2. Rescan items with updated prices
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Verify cart before checkout">
+    - Always review the scanned items list
+    - Check quantities are correct
+    - Ensure total matches expected amount
+  </Accordion>
+
+  <Accordion title="Test printer before busy hours">
+    - Print a test receipt at the start of business
+    - Check paper levels
+    - Keep spare paper rolls nearby
+  </Accordion>
+
+  <Accordion title="Handle scanning errors gracefully">
+    - If product not found, add it to inventory immediately
+    - Use manual quantity adjustment for bulk items
+    - Keep camera lens clean for reliable scanning
+  </Accordion>
+
+  <Accordion title="Battery management">
+    - Turn off camera during idle periods
+    - Keep phone plugged in during high-traffic times
+    - Disable flashlight when not needed
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Customize Receipts" icon="receipt" href="/guides/customize-receipts">
+    Configure shop details and receipt format
+  </Card>
+  <Card title="Manage Inventory" icon="boxes-stacked" href="/guides/manage-inventory">
+    Add and organize products
+  </Card>
+</CardGroup>

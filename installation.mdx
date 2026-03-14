@@ -1,0 +1,480 @@
+---
+title: Installation
+description: Complete setup instructions for the Flutter Billing App development environment
+---
+
+## Prerequisites
+
+Before installing the Flutter Billing App, ensure your development environment meets these requirements:
+
+### Required Software
+
+<CardGroup cols={2}>
+  <Card title="Flutter SDK" icon="flutter">
+    Version **3.1.0** or higher required
+  </Card>
+  <Card title="Dart SDK" icon="code">
+    Bundled with Flutter (SDK &gt;=3.1.0 &lt;4.0.0)
+  </Card>
+  <Card title="IDE" icon="laptop-code">
+    Android Studio, VS Code, or IntelliJ IDEA
+  </Card>
+  <Card title="Platform Tools" icon="mobile">
+    Android Studio for Android / Xcode for iOS
+  </Card>
+</CardGroup>
+
+### Verify Flutter Installation
+
+Run the Flutter doctor command to check your setup:
+
+```bash
+flutter doctor
+```
+
+Ensure all required components show a green checkmark. Address any issues before proceeding.
+
+<Tip>
+For first-time Flutter setup, follow the official [Flutter installation guide](https://flutter.dev/docs/get-started/install).
+</Tip>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the project from your source control:
+
+    ```bash
+    git clone <repository_url>
+    cd billing_app
+    ```
+
+    Verify you're in the correct directory:
+
+    ```bash
+    ls -la
+    ```
+
+    You should see `pubspec.yaml`, `lib/`, `android/`, and `ios/` directories.
+  </Step>
+
+  <Step title="Install Flutter dependencies">
+    Fetch all required packages defined in `pubspec.yaml`:
+
+    ```bash
+    flutter pub get
+    ```
+
+    This installs the following key dependencies:
+
+    **State Management & Architecture:**
+    - `flutter_bloc: ^8.1.5` - BLoC state management
+    - `get_it: ^7.6.7` - Dependency injection
+    - `equatable: ^2.0.5` - Value equality for state classes
+    - `fpdart: ^1.1.0` - Functional programming utilities
+
+    **Database & Persistence:**
+    - `hive: ^2.2.3` - Lightweight NoSQL database
+    - `hive_flutter: ^1.1.0` - Flutter integration for Hive
+
+    **Navigation:**
+    - `go_router: ^14.0.0` - Declarative routing
+
+    **Hardware Integration:**
+    - `mobile_scanner: ^5.1.0` - Barcode/QR code scanning
+    - `print_bluetooth_thermal: ^1.1.2` - Thermal printer support
+
+    **Utilities:**
+    - `google_fonts: ^6.1.0` - Custom typography
+    - `intl: ^0.19.0` - Internationalization and formatting
+    - `uuid: ^4.5.2` - Unique ID generation
+    - `vibration: ^3.1.8` - Haptic feedback
+    - `permission_handler: ^11.3.1` - Runtime permissions
+  </Step>
+
+  <Step title="Run code generation">
+    Generate required Hive adapters and JSON serialization code:
+
+    ```bash
+    dart run build_runner build --delete-conflicting-outputs
+    ```
+
+    <Info>
+    The `--delete-conflicting-outputs` flag automatically resolves conflicts by overwriting existing generated files.
+    </Info>
+
+    This command generates:
+
+    - `lib/features/product/data/models/product_model.g.dart` - Hive adapter for Product
+    - `lib/features/shop/data/models/shop_model.g.dart` - Hive adapter for Shop
+    - JSON serialization helpers for all annotated models
+
+    **Generated Hive Adapters** are registered in `lib/core/data/hive_database.dart:14-15`:
+
+    ```dart Adapter Registration
+    Hive.registerAdapter(ProductModelAdapter());
+    Hive.registerAdapter(ShopModelAdapter());
+    ```
+
+    <Warning>
+    You must run code generation whenever you:
+    - Add new Hive models
+    - Modify existing `@HiveType` annotated classes
+    - Add new `@JsonSerializable` classes
+    </Warning>
+  </Step>
+
+  <Step title="Platform-specific configuration">
+    ### Android Setup
+
+    **Camera Permissions** (`android/app/src/main/AndroidManifest.xml`):
+
+    Add camera permissions for barcode scanning:
+
+    ```xml
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" />
+    <uses-feature android:name="android.hardware.camera.autofocus" />
+    ```
+
+    **Bluetooth Permissions** (for thermal printing):
+
+    ```xml
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    ```
+
+    **Minimum SDK Version**:
+
+    Ensure `minSdkVersion` is at least 21 in `android/app/build.gradle`:
+
+    ```gradle
+    android {
+        defaultConfig {
+            minSdkVersion 21
+            targetSdkVersion 33
+        }
+    }
+    ```
+
+    ### iOS Setup
+
+    **Camera Permissions** (`ios/Runner/Info.plist`):
+
+    Add camera usage description:
+
+    ```xml
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required to scan product barcodes</string>
+    ```
+
+    **Bluetooth Permissions**:
+
+    ```xml
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Bluetooth access is required to connect to thermal printers</string>
+    <key>NSBluetoothPeripheralUsageDescription</key>
+    <string>Bluetooth access is required to connect to thermal printers</string>
+    ```
+
+    **Minimum iOS Version**:
+
+    Ensure minimum deployment target is iOS 12.0 or higher in `ios/Podfile`:
+
+    ```ruby
+    platform :ios, '12.0'
+    ```
+  </Step>
+
+  <Step title="Run the application">
+    Launch the app on a connected device or emulator:
+
+    ```bash
+    flutter run
+    ```
+
+    For release mode (optimized performance):
+
+    ```bash
+    flutter run --release
+    ```
+
+    To specify a particular device:
+
+    ```bash
+    # List available devices
+    flutter devices
+
+    # Run on specific device
+    flutter run -d <device_id>
+    ```
+  </Step>
+</Steps>
+
+## Development Tools
+
+### Running Code Generation in Watch Mode
+
+For active development, run the code generator in watch mode to automatically regenerate files on changes:
+
+```bash
+dart run build_runner watch --delete-conflicting-outputs
+```
+
+<Tip>
+Keep this running in a separate terminal during development to avoid manual regeneration.
+</Tip>
+
+### Clean Build
+
+If you encounter build issues, perform a clean rebuild:
+
+```bash
+flutter clean
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run
+```
+
+## Project Structure Overview
+
+After installation, your project structure follows a Feature-First Clean Architecture:
+
+```plaintext
+lib/
+├── core/                       # Core utilities and shared components
+│   ├── data/                   # Global data sources (Hive initialization)
+│   │   └── hive_database.dart  # Database setup and box accessors
+│   ├── error/                  # Failure/Exception models
+│   ├── theme/                  # App theme and styling
+│   ├── usecase/                # Base UseCase contracts
+│   ├── utils/                  # Helper utilities
+│   ├── widgets/                # Reusable UI components
+│   └── service_locator.dart    # Dependency injection setup
+│
+├── features/                   # Feature modules
+│   ├── billing/                # POS checkout operations
+│   │   ├── data/               # Data layer (repositories)
+│   │   ├── domain/             # Domain layer (entities, use cases)
+│   │   └── presentation/       # UI layer (pages, BLoCs)
+│   ├── product/                # Product inventory management
+│   ├── settings/               # App settings and printer config
+│   └── shop/                   # Shop details configuration
+│
+├── config/
+│   └── routes/
+│       └── app_routes.dart     # GoRouter configuration
+│
+└── main.dart                   # Application entry point
+```
+
+## Dependency Injection Setup
+
+The app uses `get_it` for dependency injection. All dependencies are registered in `lib/core/service_locator.dart:16-67`:
+
+```dart Service Locator Example
+Future<void> init() async {
+  // Features - Product
+  sl.registerFactory(
+    () => ProductBloc(
+      getProductsUseCase: sl(),
+      addProductUseCase: sl(),
+      updateProductUseCase: sl(),
+      deleteProductUseCase: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetProductsUseCase(sl()));
+  sl.registerLazySingleton(() => AddProductUseCase(sl()));
+
+  // Repository
+  sl.registerLazySingleton<ProductRepository>(
+    () => ProductRepositoryImpl(),
+  );
+}
+```
+
+## Hive Database Configuration
+
+The local database is initialized in `lib/core/data/hive_database.dart`:
+
+```dart Database Initialization
+class HiveDatabase {
+  static const String productBoxName = 'products';
+  static const String shopBoxName = 'shop';
+  static const String settingsBoxName = 'settings';
+
+  static Future<void> init() async {
+    await Hive.initFlutter();
+
+    // Register Adapters
+    Hive.registerAdapter(ProductModelAdapter());
+    Hive.registerAdapter(ShopModelAdapter());
+
+    // Open Boxes
+    await Hive.openBox<ProductModel>(productBoxName);
+    await Hive.openBox<ShopModel>(shopBoxName);
+    await Hive.openBox(settingsBoxName);
+  }
+
+  static Box<ProductModel> get productBox =>
+      Hive.box<ProductModel>(productBoxName);
+  static Box<ShopModel> get shopBox => Hive.box<ShopModel>(shopBoxName);
+  static Box get settingsBox => Hive.box(settingsBoxName);
+}
+```
+
+<Note>
+Hive stores data in the device's local file system. Data persists across app restarts.
+</Note>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Build runner fails with conflicts">
+    **Solution**: Use the `--delete-conflicting-outputs` flag:
+
+    ```bash
+    dart run build_runner build --delete-conflicting-outputs
+    ```
+
+    If issues persist, delete generated files manually:
+
+    ```bash
+    find . -name "*.g.dart" -type f -delete
+    dart run build_runner build
+    ```
+  </Accordion>
+
+  <Accordion title="Camera not working on Android">
+    **Possible causes**:
+    1. Missing camera permissions in `AndroidManifest.xml`
+    2. Runtime permission not granted by user
+    3. Emulator doesn't have camera support
+
+    **Solution**:
+    - Add camera permissions to manifest
+    - Use `permission_handler` to request runtime permissions
+    - Test on a physical device with a working camera
+  </Accordion>
+
+  <Accordion title="Hive adapter not found error">
+    **Error**: `Cannot read, unknown type id`
+
+    **Solution**:
+    1. Ensure code generation completed successfully
+    2. Verify adapters are registered in `HiveDatabase.init()`
+    3. Check that `@HiveType` annotations have unique `typeId` values
+  </Accordion>
+
+  <Accordion title="Bluetooth printer not connecting">
+    **Possible causes**:
+    1. Bluetooth permissions not granted
+    2. Printer not paired with device
+    3. Printer out of range or powered off
+
+    **Solution**:
+    - Ensure Bluetooth permissions are in manifest
+    - Pair the printer in device Bluetooth settings first
+    - Check printer power and connectivity
+    - Test with the app's printer settings page
+  </Accordion>
+
+  <Accordion title="Dependency version conflicts">
+    **Solution**:
+
+    ```bash
+    flutter pub upgrade --major-versions
+    flutter pub get
+    ```
+
+    If issues persist, delete `pubspec.lock` and reinstall:
+
+    ```bash
+    rm pubspec.lock
+    flutter pub get
+    ```
+  </Accordion>
+
+  <Accordion title="iOS build fails with pod errors">
+    **Solution**:
+
+    ```bash
+    cd ios
+    rm -rf Pods Podfile.lock
+    pod install --repo-update
+    cd ..
+    flutter run
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Debug Mode vs Release Mode
+
+**Debug Mode** (default):
+- Slower performance
+- Hot reload/hot restart enabled
+- Debugging tools available
+- Larger app size
+
+```bash
+flutter run
+```
+
+**Release Mode**:
+- Optimized performance
+- No debugging overhead
+- Smaller app size
+- No hot reload
+
+```bash
+flutter run --release
+```
+
+<Warning>
+Always test hardware features (camera, Bluetooth) on physical devices in release mode before production deployment.
+</Warning>
+
+## Verification
+
+After installation, verify everything is working:
+
+<Steps>
+  <Step title="Check app launches">
+    Run the app and verify the home screen displays with the barcode scanner interface
+  </Step>
+  <Step title="Test navigation">
+    Navigate to Settings, Products, and Shop Details pages using the UI
+  </Step>
+  <Step title="Add a test product">
+    Create a sample product in the Product Management screen
+  </Step>
+  <Step title="Test scanning (optional)">
+    If using a physical device, test barcode scanning functionality
+  </Step>
+  <Step title="Check data persistence">
+    Close and reopen the app to verify Hive data persists correctly
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Complete your first checkout flow
+  </Card>
+  <Card title="Features Overview" icon="list" href="/features">
+    Explore all app capabilities
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+    Learn about the Clean Architecture design
+  </Card>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/Dinesh-Sowndar/flutter_billing_app">
+    Contribute to the project
+  </Card>
+</CardGroup>

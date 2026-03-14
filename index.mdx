@@ -1,97 +1,99 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Flutter Billing App"
+description: "Offline-first mobile POS and billing application for retail shops with barcode scanning and thermal receipt printing"
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #085a9c 0%, #3dcffb 100%)',
+  padding: '4rem 2rem',
+  borderRadius: '12px',
+  marginBottom: '2rem',
+  textAlign: 'center'
+}}>
+  <h1 style={{
+    fontSize: '48px',
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: '1rem',
+    fontFamily: 'Google Sans, sans-serif'
+  }}>
+    Modern POS for Retail
+  </h1>
+  <p style={{
+    fontSize: '20px',
+    color: '#ffffff',
+    maxWidth: '800px',
+    margin: '0 auto 2rem',
+    fontFamily: 'Google Sans, sans-serif'
+  }}>
+    A complete offline-first billing and Point of Sale system built with Flutter. Features barcode scanning, thermal printing, and robust local data persistence for seamless retail operations.
+  </p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Key Features
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Offline-First Architecture" icon="database" href="/architecture/offline-first">
+    Lightning-fast local NoSQL storage with Hive. No internet required for operations.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Barcode Scanning" icon="barcode" href="/features/barcode-scanning">
+    Camera-based QR and barcode scanning for rapid product entry and checkout.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Thermal Printing" icon="print" href="/features/thermal-printing">
+    Direct Bluetooth integration with thermal printers for instant physical receipts.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Product Management" icon="boxes-stacked" href="/features/product-management">
+    Complete CRUD operations for inventory with barcode support and stock tracking.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Get Started
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in minutes with our installation guide
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed setup instructions for Flutter SDK and dependencies
+  </Card>
+  <Card title="Architecture Guide" icon="sitemap" href="/architecture/overview">
+    Learn about Clean Architecture and feature-driven design
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/product">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Built With Industry Standards
 
-## Need inspiration?
+This application leverages Clean Architecture and Feature-Driven Design ensuring scalability, separation of concerns, and robust testability.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={3}>
+  <Card title="Flutter BLoC" icon="cube">
+    Predictable state management with reactive programming
+  </Card>
+  <Card title="Hive Database" icon="box">
+    Fast, lightweight NoSQL local storage
+  </Card>
+  <Card title="Clean Architecture" icon="layer-group">
+    Separation of domain, data, and presentation layers
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<Accordion title="Rapid Billing Entry">
+  A cashier launches the app, navigates to checkout, and uses the device camera to instantly scan product barcodes. Products are added to the cart, totals calculated including taxes, and a receipt is finalized in seconds.
+</Accordion>
+
+<Accordion title="Physical Receipt Generation">
+  After checkout confirmation, the app triggers a connected Bluetooth thermal POS printer to instantly print an itemized paper receipt with the shop's header and custom footer.
+</Accordion>
+
+<Accordion title="Inventory Management">
+  A manager opens the Product feature to add new stock to the local database, capturing barcodes to bind SKUs for future lightning-fast checkouts.
+</Accordion>
+
+<Accordion title="No-Connection Operation">
+  The business operates a stall at an exhibition with poor networking. The app functions entirely via its embedded Hive local database and Bluetooth, completely undisturbed by network drops.
+</Accordion>

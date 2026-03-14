@@ -1,0 +1,430 @@
+---
+title: 'Billing & Checkout'
+description: 'Complete checkout flow with cart management, order calculations, and UPI payment integration'
+icon: 'cash-register'
+---
+
+## Overview
+
+The Billing & Checkout feature provides a streamlined point-of-sale experience. Customers can scan products, manage cart quantities, view order totals, and complete transactions with integrated UPI payment QR codes.
+
+## Cart Management
+
+### Cart Item Entity
+
+Each item in the cart contains product information and quantity:
+
+```dart lib/features/billing/domain/entities/cart_item.dart
+class CartItem extends Equatable {
+  final Product product;
+  final int quantity;
+
+  const CartItem({
+    required this.product,
+    this.quantity = 1,
+  });
+
+  // Automatically calculate item total
+  double get total => product.price * quantity;
+
+  CartItem copyWith({
+    Product? product,
+    int? quantity,
+  }) {
+    return CartItem(
+      product: product ?? this.product,
+      quantity: quantity ?? this.quantity,
+    );
+  }
+}
+```
+
+## Adding Products to Cart
+
+<Steps>
+  <Step title="Scan Product Barcode">
+    Use the barcode scanner to add products to the cart.
+    
+    ```dart lib/features/billing/presentation/bloc/billing_bloc.dart
+    Future<void> _onScanBarcode(
+        ScanBarcodeEvent event, Emitter<BillingState> emit) async {
+      // Lookup product by barcode
+      final result = await getProductByBarcodeUseCase(event.barcode);
+      
+      result.fold(
+        (failure) => emit(state.copyWith(
+          error: 'Product not found: ${event.barcode}'
+        )),
+        (product) {
+          // Add to cart
+          add(AddProductToCartEvent(product));
+        },
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Handle Quantity">
+    If the product already exists in the cart, increment its quantity.
+    
+    ```dart
+    void _onAddProductToCart(
+        AddProductToCartEvent event, Emitter<BillingState> emit) {
+      final existingIndex = state.cartItems
+          .indexWhere((item) => item.product.id == event.product.id);
+      
+      if (existingIndex >= 0) {
+        // Increment existing item quantity
+        final existingItem = state.cartItems[existingIndex];
+        final updatedItems = List<CartItem>.from(state.cartItems);
+        updatedItems[existingIndex] = 
+            existingItem.copyWith(quantity: existingItem.quantity + 1);
+        emit(state.copyWith(cartItems: updatedItems));
+      } else {
+        // Add new item to cart
+        final newItem = CartItem(product: event.product);
+        emit(state.copyWith(
+          cartItems: [...state.cartItems, newItem]
+        ));
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Updating Quantities
+
+Users can manually adjust item quantities:
+
+```dart lib/features/billing/presentation/bloc/billing_bloc.dart
+void _onUpdateQuantity(
+    UpdateQuantityEvent event, Emitter<BillingState> emit) {
+  if (event.quantity <= 0) {
+    // Remove item if quantity is 0
+    add(RemoveProductFromCartEvent(event.productId));
+    return;
+  }
+
+  final index = state.cartItems
+      .indexWhere((item) => item.product.id == event.productId);
+  
+  if (index >= 0) {
+    final items = List<CartItem>.from(state.cartItems);
+    items[index] = items[index].copyWith(quantity: event.quantity);
+    emit(state.copyWith(cartItems: items));
+  }
+}
+```
+
+<Info>
+  Setting quantity to 0 automatically removes the item from the cart.
+</Info>
+
+## Removing Items
+
+Remove products from the cart:
+
+```dart
+void _onRemoveProductFromCart(
+    RemoveProductFromCartEvent event, Emitter<BillingState> emit) {
+  final updatedList = state.cartItems
+      .where((item) => item.product.id != event.productId)
+      .toList();
+  emit(state.copyWith(cartItems: updatedList));
+}
+```
+
+## Order Calculations
+
+The billing state automatically calculates the total amount:
+
+```dart
+// In BillingState
+double get totalAmount => cartItems.fold(
+  0.0, 
+  (sum, item) => sum + item.total
+);
+```
+
+Each cart item calculates its own subtotal:
+
+```dart
+// In CartItem entity
+double get total => product.price * quantity;
+```
+
+## Checkout Flow
+
+### Checkout Page Layout
+
+The checkout page displays:
+
+<CardGroup cols={2}>
+  <Card title="Order Summary" icon="receipt">
+    Table view of all items with quantities, prices, and totals
+  </Card>
+  <Card title="Payment QR Code" icon="qrcode">
+    UPI payment QR code for digital payments
+  </Card>
+  <Card title="Grand Total" icon="calculator">
+    Prominently displayed final amount
+  </Card>
+  <Card title="Print Button" icon="print">
+    Generate thermal receipt for customer
+  </Card>
+</CardGroup>
+
+### Order Table
+
+```dart lib/features/billing/presentation/pages/checkout_page.dart
+Table(
+  border: const TableBorder(
+    horizontalInside: BorderSide(color: borderColor),
+  ),
+  children: [
+    // Header row
+    TableRow(
+      children: [
+        _buildHeaderCell('Product Name', TextAlign.left),
+        _buildHeaderCell('Price', TextAlign.right),
+        _buildHeaderCell('Total', TextAlign.right),
+      ],
+    ),
+    // Item rows
+    ...billingState.cartItems.map((item) {
+      return TableRow(
+        children: [
+          _buildDataCell(
+            '${item.quantity} x ${item.product.name}',
+            TextAlign.left,
+          ),
+          _buildDataCell(
+            '₹${item.product.price.toStringAsFixed(2)}',
+            TextAlign.right,
+          ),
+          _buildDataCell(
+            '₹${item.total.toStringAsFixed(2)}',
+            TextAlign.right,
+          ),
+        ],
+      );
+    }),
+  ],
+)
+```
+
+## UPI Payment Integration
+
+The app generates UPI payment QR codes using the shop's UPI ID:
+
+```dart lib/features/billing/presentation/pages/checkout_page.dart
+// Generate UPI payment link
+String upiId = shopState.shop.upiId;
+String shopName = shopState.shop.name;
+double amount = billingState.totalAmount;
+
+// Create UPI URL
+String upiUrl = 'upi://pay?pa=$upiId&pn=$shopName&am=${amount.toStringAsFixed(2)}&cu=INR';
+
+// Display as QR code
+PrettyQrView.data(
+  data: upiUrl,
+)
+```
+
+<Note>
+  The UPI QR code only appears if a UPI ID is configured in Shop Settings.
+</Note>
+
+### UPI URL Parameters
+
+- `pa` - Payee address (UPI ID)
+- `pn` - Payee name (shop name)
+- `am` - Amount to pay
+- `cu` - Currency (INR)
+
+## Printing Receipts
+
+After payment, generate a thermal receipt:
+
+```dart lib/features/billing/presentation/bloc/billing_bloc.dart
+Future<void> _onPrintReceipt(
+    PrintReceiptEvent event, Emitter<BillingState> emit) async {
+  final printerHelper = PrinterHelper();
+
+  // Auto-connect if not connected
+  if (!printerHelper.isConnected) {
+    final savedMac = HiveDatabase.settingsBox.get('printer_mac');
+    if (savedMac != null) {
+      final connected = await printerHelper.connect(savedMac);
+      if (!connected) {
+        emit(state.copyWith(error: 'Failed to connect to printer!'));
+        return;
+      }
+    }
+  }
+
+  emit(state.copyWith(isPrinting: true));
+
+  try {
+    // Prepare items for printing
+    final items = state.cartItems
+        .map((item) => {
+              'name': item.product.name,
+              'qty': item.quantity,
+              'price': item.product.price,
+              'total': item.total,
+            })
+        .toList();
+
+    // Print receipt
+    await printerHelper.printReceipt(
+      shopName: event.shopName,
+      address1: event.address1,
+      address2: event.address2,
+      phone: event.phone,
+      items: items,
+      total: state.totalAmount,
+      footer: event.footer,
+    );
+
+    emit(state.copyWith(isPrinting: false, printSuccess: true));
+  } catch (e) {
+    emit(state.copyWith(
+      isPrinting: false, 
+      error: 'Print failed: $e'
+    ));
+  }
+}
+```
+
+## Clearing the Cart
+
+After completing a transaction, clear the cart:
+
+```dart
+void _onClearCart(ClearCartEvent event, Emitter<BillingState> emit) {
+  emit(const BillingState());
+}
+```
+
+<Warning>
+  The cart is automatically cleared when navigating back from the checkout page to prevent duplicate orders.
+</Warning>
+
+## Navigation & State
+
+```dart lib/features/billing/presentation/pages/checkout_page.dart
+PopScope(
+  canPop: false,
+  onPopInvokedWithResult: (bool didPop, dynamic result) {
+    if (didPop) return;
+    // Clear cart on back navigation
+    context.read<BillingBloc>().add(ClearCartEvent());
+    context.go('/');
+  },
+)
+```
+
+## BLoC Events
+
+The billing feature uses these events:
+
+<AccordionGroup>
+  <Accordion title="ScanBarcodeEvent">
+    Triggered when a barcode is scanned. Looks up the product and adds it to cart.
+    
+    ```dart
+    context.read<BillingBloc>().add(ScanBarcodeEvent(barcode));
+    ```
+  </Accordion>
+
+  <Accordion title="AddProductToCartEvent">
+    Directly adds a product to the cart.
+    
+    ```dart
+    context.read<BillingBloc>().add(AddProductToCartEvent(product));
+    ```
+  </Accordion>
+
+  <Accordion title="UpdateQuantityEvent">
+    Updates the quantity of a cart item.
+    
+    ```dart
+    context.read<BillingBloc>().add(
+      UpdateQuantityEvent(productId, newQuantity)
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="RemoveProductFromCartEvent">
+    Removes an item from the cart.
+    
+    ```dart
+    context.read<BillingBloc>().add(
+      RemoveProductFromCartEvent(productId)
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="PrintReceiptEvent">
+    Prints the receipt with shop details.
+    
+    ```dart
+    context.read<BillingBloc>().add(PrintReceiptEvent(
+      shopName: shop.name,
+      address1: shop.addressLine1,
+      address2: shop.addressLine2,
+      phone: shop.phoneNumber,
+      footer: shop.footerText,
+    ));
+    ```
+  </Accordion>
+
+  <Accordion title="ClearCartEvent">
+    Clears all items from the cart.
+    
+    ```dart
+    context.read<BillingBloc>().add(ClearCartEvent());
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+The billing system handles various error scenarios:
+
+```dart
+// Product not found
+if (failure) {
+  emit(state.copyWith(error: 'Product not found: $barcode'));
+}
+
+// Printer connection failed
+if (!connected) {
+  emit(state.copyWith(error: 'Failed to connect to printer!'));
+}
+
+// Print operation failed
+catch (e) {
+  emit(state.copyWith(error: 'Print failed: $e'));
+}
+```
+
+<Tip>
+  Errors are displayed as SnackBars to the user and automatically cleared after being shown.
+</Tip>
+
+## Best Practices
+
+1. **Always validate cart**: Ensure products exist before adding to cart
+2. **Auto-connect printer**: Automatically reconnect to saved printer before printing
+3. **Clear cart**: Always clear cart after successful transaction
+4. **Show feedback**: Display loading states during printing operations
+5. **Error recovery**: Provide clear error messages and recovery options
+
+## Related Features
+
+- [Barcode Scanning](/features/barcode-scanning) - Scan products for checkout
+- [Thermal Printing](/features/thermal-printing) - Print customer receipts
+- [Shop Settings](/features/shop-settings) - Configure UPI ID and receipt details

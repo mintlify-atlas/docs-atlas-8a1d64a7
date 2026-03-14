@@ -1,0 +1,301 @@
+---
+title: 'Settings API'
+description: 'Printer and settings management APIs and BLoC'
+---
+
+## PrinterRepository
+
+Abstract repository interface for printer operations.
+
+### Methods
+
+<Expandable title="scanDevices()">
+  Scans for available Bluetooth devices.
+
+  <ParamField path="returns" type="Future<List<BluetoothInfo>>">
+    List of discovered Bluetooth devices
+  </ParamField>
+
+  ```dart
+  Future<List<BluetoothInfo>> scanDevices()
+  ```
+</Expandable>
+
+<Expandable title="connect(String macAddress)">
+  Connects to a printer via Bluetooth.
+
+  <ParamField path="macAddress" type="String" required>
+    MAC address of the printer
+  </ParamField>
+
+  <ParamField path="returns" type="Future<bool>">
+    `true` if connection successful, `false` otherwise
+  </ParamField>
+
+  ```dart
+  Future<bool> connect(String macAddress)
+  ```
+</Expandable>
+
+<Expandable title="disconnect()">
+  Disconnects from the currently connected printer.
+
+  <ParamField path="returns" type="Future<bool>">
+    `true` if disconnection successful
+  </ParamField>
+
+  ```dart
+  Future<bool> disconnect()
+  ```
+</Expandable>
+
+<Expandable title="getSavedPrinterMac()">
+  Gets the saved printer MAC address from storage.
+
+  <ParamField path="returns" type="String?">
+    MAC address or `null` if not saved
+  </ParamField>
+
+  ```dart
+  String? getSavedPrinterMac()
+  ```
+</Expandable>
+
+<Expandable title="getSavedPrinterName()">
+  Gets the saved printer name from storage.
+
+  <ParamField path="returns" type="String?">
+    Printer name or `null` if not saved
+  </ParamField>
+
+  ```dart
+  String? getSavedPrinterName()
+  ```
+</Expandable>
+
+<Expandable title="savePrinterData(String mac, String name)">
+  Saves printer MAC address and name to storage.
+
+  <ParamField path="mac" type="String" required>
+    Printer MAC address
+  </ParamField>
+
+  <ParamField path="name" type="String" required>
+    Printer name
+  </ParamField>
+
+  ```dart
+  Future<void> savePrinterData(String mac, String name)
+  ```
+</Expandable>
+
+<Expandable title="clearPrinterData()">
+  Clears saved printer data from storage.
+
+  ```dart
+  Future<void> clearPrinterData()
+  ```
+</Expandable>
+
+<Expandable title="testPrint(String shopName)">
+  Prints a test receipt.
+
+  <ParamField path="shopName" type="String" required>
+    Shop name to print on test receipt
+  </ParamField>
+
+  ```dart
+  Future<void> testPrint(String shopName)
+  ```
+</Expandable>
+
+---
+
+## PrinterBloc
+
+BLoC for managing printer connection and operations.
+
+### Constructor
+
+```dart
+PrinterBloc({
+  required PrinterRepository repository,
+})
+```
+
+### Events
+
+<Expandable title="InitPrinterEvent">
+  Initializes printer state by loading saved printer data.
+
+  ```dart
+  class InitPrinterEvent extends PrinterEvent {}
+  ```
+</Expandable>
+
+<Expandable title="RefreshPrinterEvent">
+  Scans for devices and automatically connects to the first available paired printer.
+
+  ```dart
+  class RefreshPrinterEvent extends PrinterEvent {}
+  ```
+</Expandable>
+
+<Expandable title="ScanPrintersEvent">
+  Scans for available Bluetooth printers without auto-connecting.
+
+  ```dart
+  class ScanPrintersEvent extends PrinterEvent {}
+  ```
+</Expandable>
+
+<Expandable title="ConnectPrinterEvent">
+  Connects to a specific printer and saves its data.
+
+  <ParamField path="mac" type="String" required>
+    Printer MAC address
+  </ParamField>
+
+  <ParamField path="name" type="String" required>
+    Printer name
+  </ParamField>
+
+  ```dart
+  class ConnectPrinterEvent extends PrinterEvent {
+    final String mac;
+    final String name;
+
+    const ConnectPrinterEvent({required this.mac, required this.name});
+  }
+  ```
+</Expandable>
+
+<Expandable title="DisconnectPrinterEvent">
+  Disconnects from the current printer and clears saved data.
+
+  ```dart
+  class DisconnectPrinterEvent extends PrinterEvent {}
+  ```
+</Expandable>
+
+<Expandable title="TestPrintEvent">
+  Prints a test receipt.
+
+  <ParamField path="shopName" type="String" required>
+    Shop name for test receipt
+  </ParamField>
+
+  ```dart
+  class TestPrintEvent extends PrinterEvent {
+    final String shopName;
+
+    const TestPrintEvent(this.shopName);
+  }
+  ```
+</Expandable>
+
+### State
+
+<ResponseField name="status" type="PrinterStatus" required>
+  Current printer status: `initial`, `scanning`, `scanSuccess`, `scanFailure`, `connecting`, `connected`, `connectionFailure`, `disconnected`, or `testPrinting`
+</ResponseField>
+
+<ResponseField name="connectedMac" type="String?">
+  MAC address of connected printer
+</ResponseField>
+
+<ResponseField name="connectedName" type="String?">
+  Name of connected printer
+</ResponseField>
+
+<ResponseField name="devices" type="List<BluetoothInfo>" default="[]">
+  List of discovered Bluetooth devices
+</ResponseField>
+
+<ResponseField name="errorMessage" type="String?">
+  Error message if any operation fails
+</ResponseField>
+
+```dart
+enum PrinterStatus {
+  initial,
+  scanning,
+  scanSuccess,
+  scanFailure,
+  connecting,
+  connected,
+  connectionFailure,
+  disconnected,
+  testPrinting
+}
+
+class PrinterState extends Equatable {
+  final PrinterStatus status;
+  final String? connectedMac;
+  final String? connectedName;
+  final List<BluetoothInfo> devices;
+  final String? errorMessage;
+
+  const PrinterState({
+    this.status = PrinterStatus.initial,
+    this.connectedMac,
+    this.connectedName,
+    this.devices = const [],
+    this.errorMessage,
+  });
+
+  PrinterState copyWith({
+    PrinterStatus? status,
+    String? connectedMac,
+    String? connectedName,
+    List<BluetoothInfo>? devices,
+    String? errorMessage,
+    bool clearError = false,
+  });
+}
+```
+
+### Usage Example
+
+```dart
+// Initialize printer on app start
+context.read<PrinterBloc>().add(InitPrinterEvent());
+
+// Scan for printers
+context.read<PrinterBloc>().add(ScanPrintersEvent());
+
+// Auto-refresh and connect
+context.read<PrinterBloc>().add(RefreshPrinterEvent());
+
+// Connect to specific printer
+context.read<PrinterBloc>().add(ConnectPrinterEvent(
+  mac: '00:11:22:33:44:55',
+  name: 'Thermal Printer',
+));
+
+// Test print
+context.read<PrinterBloc>().add(TestPrintEvent('My Shop'));
+
+// Disconnect
+context.read<PrinterBloc>().add(DisconnectPrinterEvent());
+
+// Listen to state
+BlocBuilder<PrinterBloc, PrinterState>(
+  builder: (context, state) {
+    if (state.status == PrinterStatus.connected) {
+      return Text('Connected to: ${state.connectedName}');
+    } else if (state.status == PrinterStatus.scanFailure) {
+      return Text('Error: ${state.errorMessage}');
+    }
+    return CircularProgressIndicator();
+  },
+)
+```
+
+### Behavior Notes
+
+- `RefreshPrinterEvent` scans for devices and automatically connects to the first available
+- `ScanPrintersEvent` only scans without auto-connecting
+- Connected printer data is persisted to storage
+- Errors are cleared on next operation when `clearError` is true
+- Test printing requires an active printer connection

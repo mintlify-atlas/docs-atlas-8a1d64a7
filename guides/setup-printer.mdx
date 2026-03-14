@@ -1,0 +1,222 @@
+---
+title: 'Setup Bluetooth Printer'
+description: 'Connect and configure a Bluetooth thermal printer for receipt printing'
+icon: 'print'
+---
+
+This guide walks you through connecting a Bluetooth thermal printer to your Flutter Billing App for printing receipts.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+- A Bluetooth thermal printer (58mm or 80mm)
+- Android device with Bluetooth capability
+- Printer powered on and in pairing mode
+
+<Note>
+The app uses the `print_bluetooth_thermal` package for printer communication and requires Android Bluetooth permissions.
+</Note>
+
+## Step 1: Grant Required Permissions
+
+<Steps>
+  <Step title="Launch the app">
+    When you first open the app, it will request Bluetooth and Location permissions.
+  </Step>
+  
+  <Step title="Accept permissions">
+    Tap **Allow** on all permission dialogs:
+    - Bluetooth permissions (for Android 12+)
+    - Bluetooth Scan
+    - Bluetooth Connect
+    - Location access (required for Bluetooth discovery on older Android)
+  </Step>
+</Steps>
+
+<Warning>
+Without these permissions, the app cannot discover or connect to Bluetooth printers. If you accidentally denied permissions, go to your phone's Settings → Apps → Billing App → Permissions and enable them manually.
+</Warning>
+
+## Step 2: Pair Your Printer
+
+<Steps>
+  <Step title="Put printer in pairing mode">
+    Consult your printer's manual to enable pairing mode. Most thermal printers enter pairing mode automatically when powered on.
+  </Step>
+  
+  <Step title="Open Bluetooth settings">
+    In the Billing App:
+    1. Tap the **Settings** icon (gear icon) in the top-right corner of the home screen
+    2. Navigate to the **Hardware** section
+    3. Find **Print Device** and tap the **Settings gear icon** on the right
+  </Step>
+  
+  <Step title="Pair in system settings">
+    This opens your phone's Bluetooth settings:
+    1. Enable Bluetooth if it's off
+    2. Look for your printer in the "Available devices" list (e.g., "BlueTooth Printer", "RPP300", "MTP-3")
+    3. Tap the printer name to pair
+    4. If prompted for a PIN, try `0000`, `1234`, or check your printer manual
+  </Step>
+</Steps>
+
+<Info>
+The printer must be **paired** in your phone's Bluetooth settings before the app can connect to it.
+</Info>
+
+## Step 3: Connect to Printer in App
+
+<Steps>
+  <Step title="Return to the app">
+    After pairing, press the back button to return to the Billing App settings page.
+  </Step>
+  
+  <Step title="Refresh printer list">
+    Tap the **Refresh icon** next to the Print Device section. The app will:
+    1. Scan for paired Bluetooth devices
+    2. Automatically attempt to connect to the first thermal printer found
+    3. Save the connection for future use
+  </Step>
+  
+  <Step title="Verify connection">
+    When connected successfully:
+    - A green **CONNECTED** badge appears next to the printer name
+    - You'll see a confirmation message: "Connected to printer"
+  </Step>
+</Steps>
+
+### Connection Process
+
+The app uses the following logic to connect:
+
+```dart
+Future<bool> connect(String macAddress) async {
+  try {
+    final bool result =
+        await PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
+    _isConnected = result;
+    return result;
+  } catch (e) {
+    _isConnected = false;
+    return false;
+  }
+}
+```
+
+<Tip>
+The app automatically reconnects to your saved printer when printing receipts, even if the connection is lost.
+</Tip>
+
+## Step 4: Test Your Printer
+
+After connecting, verify the printer works correctly:
+
+<Steps>
+  <Step title="Add test products">
+    Navigate to Settings → Products and add a few test products with prices.
+  </Step>
+  
+  <Step title="Scan items">
+    Return to the home screen and scan product barcodes or manually add items to the cart.
+  </Step>
+  
+  <Step title="Print test receipt">
+    1. Tap **Review Order**
+    2. On the checkout page, tap **Print Receipt**
+    3. The receipt should print with shop details, items, and total
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### "No paired devices found"
+
+**Solution:** The printer is not paired with your phone.
+1. Tap the Settings gear icon to open Bluetooth settings
+2. Pair your printer first
+3. Return to the app and tap Refresh
+
+### "Could not connect to any paired device"
+
+**Possible causes:**
+- Printer is turned off or out of range
+- Printer is connected to another device
+- Bluetooth is disabled
+
+**Solutions:**
+1. Ensure printer is powered on and nearby
+2. Disconnect printer from other devices
+3. Restart both printer and phone
+4. Try unpairing and re-pairing the device
+
+### "Printer not connected" when printing
+
+**Solution:** The connection was lost.
+1. Go to Settings → Hardware
+2. Tap Refresh to reconnect
+3. If the printer is saved, the app will auto-reconnect when you print
+
+### Receipt prints garbled text
+
+**Cause:** ESC/POS command compatibility issues.
+
+**Solution:**
+- Verify your printer supports ESC/POS commands
+- Most 58mm and 80mm thermal printers are compatible
+- Check printer specifications for character encoding support
+
+## Technical Details
+
+### Permissions Required
+
+The app requests these permissions in `printer_helper.dart:26`:
+
+```dart
+Future<bool> checkPermission() async {
+  Map<Permission, PermissionStatus> statuses = await [
+    Permission.bluetooth,
+    Permission.bluetoothScan,
+    Permission.bluetoothConnect,
+    Permission.location,
+  ].request();
+
+  return statuses.values.every((status) => status.isGranted);
+}
+```
+
+### Bluetooth Device Discovery
+
+The app discovers paired devices using:
+
+```dart
+Future<List<BluetoothInfo>> getBondedDevices() async {
+  try {
+    final List<BluetoothInfo> list =
+        await PrintBluetoothThermal.pairedBluetooths;
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+```
+
+### Connection Persistence
+
+When connected, the printer's MAC address and name are saved locally using Hive database (`lib/features/settings/presentation/bloc/printer_bloc.dart:46`):
+
+```dart
+await repository.savePrinterData(device.macAdress, device.name);
+```
+
+This allows automatic reconnection during printing without manual intervention.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Customize Receipts" icon="receipt" href="/guides/customize-receipts">
+    Configure shop details and receipt format
+  </Card>
+  <Card title="Process Checkout" icon="cash-register" href="/guides/process-checkout">
+    Learn the complete checkout workflow
+  </Card>
+</CardGroup>

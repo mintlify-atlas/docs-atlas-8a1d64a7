@@ -1,0 +1,259 @@
+---
+title: 'Billing API'
+description: 'Billing and cart management APIs, entities, and BLoC'
+---
+
+## CartItem Entity
+
+The `CartItem` entity represents a product item in the shopping cart.
+
+### Properties
+
+<ParamField path="product" type="Product" required>
+  The product in the cart
+</ParamField>
+
+<ParamField path="quantity" type="int" default="1">
+  Quantity of the product
+</ParamField>
+
+<ParamField path="total" type="double" readonly>
+  Computed property: `product.price * quantity`
+</ParamField>
+
+### Constructor
+
+```dart
+const CartItem({
+  required Product product,
+  int quantity = 1,
+})
+```
+
+### Methods
+
+<Expandable title="copyWith()">
+  Creates a copy of the cart item with optional field updates.
+
+  ```dart
+  CartItem copyWith({
+    Product? product,
+    int? quantity,
+  })
+  ```
+</Expandable>
+
+---
+
+## BillingBloc
+
+BLoC for managing billing operations, cart state, and receipt printing.
+
+### Constructor
+
+```dart
+BillingBloc({
+  required GetProductByBarcodeUseCase getProductByBarcodeUseCase,
+})
+```
+
+### Events
+
+<Expandable title="ScanBarcodeEvent">
+  Scans a barcode and adds the product to cart if found.
+
+  <ParamField path="barcode" type="String" required>
+    Barcode to scan
+  </ParamField>
+
+  ```dart
+  class ScanBarcodeEvent extends BillingEvent {
+    final String barcode;
+    const ScanBarcodeEvent(this.barcode);
+  }
+  ```
+</Expandable>
+
+<Expandable title="AddProductToCartEvent">
+  Adds a product to the cart or increments quantity if already present.
+
+  <ParamField path="product" type="Product" required>
+    Product to add
+  </ParamField>
+
+  ```dart
+  class AddProductToCartEvent extends BillingEvent {
+    final Product product;
+    const AddProductToCartEvent(this.product);
+  }
+  ```
+</Expandable>
+
+<Expandable title="RemoveProductFromCartEvent">
+  Removes a product from the cart.
+
+  <ParamField path="productId" type="String" required>
+    ID of product to remove
+  </ParamField>
+
+  ```dart
+  class RemoveProductFromCartEvent extends BillingEvent {
+    final String productId;
+    const RemoveProductFromCartEvent(this.productId);
+  }
+  ```
+</Expandable>
+
+<Expandable title="UpdateQuantityEvent">
+  Updates the quantity of a product in the cart. If quantity is 0 or less, removes the product.
+
+  <ParamField path="productId" type="String" required>
+    ID of product to update
+  </ParamField>
+
+  <ParamField path="quantity" type="int" required>
+    New quantity
+  </ParamField>
+
+  ```dart
+  class UpdateQuantityEvent extends BillingEvent {
+    final String productId;
+    final int quantity;
+    const UpdateQuantityEvent(this.productId, this.quantity);
+  }
+  ```
+</Expandable>
+
+<Expandable title="ClearCartEvent">
+  Clears all items from the cart.
+
+  ```dart
+  class ClearCartEvent extends BillingEvent {}
+  ```
+</Expandable>
+
+<Expandable title="PrintReceiptEvent">
+  Prints a receipt with shop details and cart items.
+
+  <ParamField path="shopName" type="String" required>
+    Shop name
+  </ParamField>
+
+  <ParamField path="address1" type="String" required>
+    Address line 1
+  </ParamField>
+
+  <ParamField path="address2" type="String" required>
+    Address line 2
+  </ParamField>
+
+  <ParamField path="phone" type="String" required>
+    Phone number
+  </ParamField>
+
+  <ParamField path="footer" type="String" required>
+    Footer text
+  </ParamField>
+
+  ```dart
+  class PrintReceiptEvent extends BillingEvent {
+    final String shopName;
+    final String address1;
+    final String address2;
+    final String phone;
+    final String footer;
+
+    const PrintReceiptEvent({
+      required this.shopName,
+      required this.address1,
+      required this.address2,
+      required this.phone,
+      required this.footer,
+    });
+  }
+  ```
+</Expandable>
+
+### State
+
+<ResponseField name="cartItems" type="List<CartItem>" default="[]">
+  List of items in the cart
+</ResponseField>
+
+<ResponseField name="error" type="String?">
+  Error message if any operation fails
+</ResponseField>
+
+<ResponseField name="isPrinting" type="bool" default="false">
+  Whether receipt is currently being printed
+</ResponseField>
+
+<ResponseField name="printSuccess" type="bool" default="false">
+  Whether last print operation was successful
+</ResponseField>
+
+<ResponseField name="totalAmount" type="double" readonly>
+  Computed property: sum of all cart item totals
+</ResponseField>
+
+```dart
+class BillingState extends Equatable {
+  final List<CartItem> cartItems;
+  final String? error;
+  final bool isPrinting;
+  final bool printSuccess;
+
+  const BillingState({
+    this.cartItems = const [],
+    this.error,
+    this.isPrinting = false,
+    this.printSuccess = false,
+  });
+
+  double get totalAmount => cartItems.fold(0, (sum, item) => sum + item.total);
+
+  BillingState copyWith({
+    List<CartItem>? cartItems,
+    String? error,
+    bool clearError = false,
+    bool? isPrinting,
+    bool? printSuccess,
+  });
+}
+```
+
+### Usage Example
+
+```dart
+// Scan a barcode
+context.read<BillingBloc>().add(ScanBarcodeEvent('123456789'));
+
+// Add product to cart
+context.read<BillingBloc>().add(AddProductToCartEvent(product));
+
+// Update quantity
+context.read<BillingBloc>().add(UpdateQuantityEvent('product-id', 5));
+
+// Remove from cart
+context.read<BillingBloc>().add(RemoveProductFromCartEvent('product-id'));
+
+// Print receipt
+context.read<BillingBloc>().add(PrintReceiptEvent(
+  shopName: 'My Shop',
+  address1: '123 Main St',
+  address2: 'City, State',
+  phone: '1234567890',
+  footer: 'Thank you!',
+));
+
+// Clear cart
+context.read<BillingBloc>().add(ClearCartEvent());
+```
+
+### Behavior Notes
+
+- When scanning a barcode, if the product is found, it's automatically added to the cart
+- Adding a product that already exists in the cart increments its quantity
+- Setting quantity to 0 or below removes the item from the cart
+- Print operations automatically connect to saved printer if available
+- Errors are transient and cleared on next operation
