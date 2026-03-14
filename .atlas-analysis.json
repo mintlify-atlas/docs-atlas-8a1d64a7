@@ -1,0 +1,105 @@
+{
+  "projectType": "saas",
+  "projectName": "Flutter Billing App",
+  "projectDescription": "Offline-first mobile POS and billing application for retail shops with barcode scanning and thermal receipt printing.",
+  "theme": "almond",
+  "primaryColor": "#4c4c4c",
+  "lightColor": "#3dcffb",
+  "darkColor": "#085a9c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/product-management",
+              "features/billing-checkout",
+              "features/barcode-scanning",
+              "features/thermal-printing",
+              "features/shop-settings"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/clean-architecture",
+              "architecture/state-management",
+              "architecture/offline-first"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/setup-printer",
+              "guides/manage-inventory",
+              "guides/process-checkout",
+              "guides/customize-receipts"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Features",
+            "pages": [
+              "api/product",
+              "api/billing",
+              "api/shop",
+              "api/settings"
+            ]
+          },
+          {
+            "group": "Core",
+            "pages": [
+              "api/core/database",
+              "api/core/printer",
+              "api/core/validators"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Offline-first architecture with Hive local database",
+    "Barcode/QR code scanning for rapid product entry",
+    "Bluetooth thermal receipt printing",
+    "Complete product inventory management (CRUD operations)",
+    "Shopping cart and checkout system with calculations",
+    "Customizable shop details and receipt formatting",
+    "Clean Architecture with BLoC state management",
+    "Functional error handling with fpdart Either types"
+  ],
+  "publicApiSurface": [
+    "GetProductsUseCase",
+    "AddProductUseCase",
+    "UpdateProductUseCase",
+    "DeleteProductUseCase",
+    "GetProductByBarcodeUseCase",
+    "GetShopDetailsUseCase",
+    "UpdateShopDetailsUseCase",
+    "BillingBloc",
+    "ProductBloc",
+    "ShopBloc",
+    "PrinterBloc",
+    "PrinterHelper.printReceipt()",
+    "PrinterHelper.connect()",
+    "HiveDatabase.init()",
+    "Product entity",
+    "CartItem entity",
+    "Shop entity"
+  ]
+}
